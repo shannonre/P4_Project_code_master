@@ -114,55 +114,9 @@ def image_looping(site_images_path): # do i need this?? - turn on when you want 
 
 #image_loop = image_looping(site_images_path)
 
+# FEATURE IDENTIFICATION
 
-# FIX OR REMOVE THIS? A good feature identifying section may remove the need for colour identification at this stage? Can extract from spectra later.
-def color_masking(site_images_path):
-    color_masks = False
-    masks = []
-    if color_masks:
-        #image_names = []
-        dc = (0, 0, 0)  # change this, min hue, saturation, value min
-        bc = (180, 255, 255)
-        for site_ids, image in enumerate(os.listdir(site_images_path), start=1):
-            if image.endswith(('.png', '.jpg')):
-                image_path = os.path.join(site_images_path, image)
-                image_array = cv2.imread(image_path)
-                print(f"READING IMAGE {site_ids}")
-               # image_array = np.array(image)
-
-                grayscale = cv2.cvtColor(image_array, cv2.COLOR_BGR2GRAY)
-                hsv_image = cv2.cvtColor(image_array, cv2.COLOR_BGR2HSV) # converts to a hsv image
-                hue_channel, saturation_channel, value_channel = cv2.split(hsv_image)
-
-                min_hue, max_hue = np.min(hue_channel), np.max(hue_channel)
-                min_sat, max_sat = np.min(saturation_channel), np.max(saturation_channel)
-                min_val, max_val = np.min(value_channel), np.max(value_channel)
-
-                deepest_tuple = (min_hue, min_sat, min_val)
-                brightest_tuple = (max_hue, max_sat, max_val)
-                darkest_color = np.min(image_array)
-                brightest_color = np.max(image_array)
-                val_min = np.min(hsv_image)
-                val_max = np.max(hsv_image)
-                #print(f"{image}, site id {site_ids}: val max is {val_max} and val min is {val_min}")
-
-                color_mask = cv2.inRange(hsv_image, np.array(deepest_tuple, dtype=np.uint8), np.array(brightest_tuple, dtype=np.uint8))
-                #color_mask = np.uint8(color_mask)
-                masks.append(color_mask)
-                #print(f"the color mask is {color_mask}")
-                #return color_mask
-        return masks #, color_mask #, deepest_tuple, brightest_tuple
-
-#masks, color_mask  = color_masking(site_images_path)  #  deepest_tuple, brightest_tuple
-
-show_masks = False
-if show_masks:
-    plt.imshow(masks[0])
-    plt.title(f'mask for first image')  # change the masks or remove them?
-    plt.show()
-    plt.close()
-
-
+canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny'
 
 def canny_edge_detection(site_images_path, min_droplet_size=10, max_droplet_size=10000):
     canny1 = True
@@ -229,11 +183,15 @@ def canny_edge_detection(site_images_path, min_droplet_size=10, max_droplet_size
 features, perimeters = canny_edge_detection(site_images_path, min_droplet_size=10, max_droplet_size=1e15)
 
 # HOUGH
+hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough'
 def hough_transforms(site_images_path, hough_output_path, dp=1, min_dist=5, param1=10, param2=10, min_radius = 10, max_radius=1e10):
     # param 1 defines how many edges are detected using the Canny edge detector (higher vals = fewer edges)
     # param 2 defines how many votes a circle must receive in order for it to be considered a valid circle (higher vals = a higher no. votes needed)
     hough = True
     if hough:
+        if not os.path.exists(hough_path):
+            os.makedirs(hough_path)
+        detected_circles = {}
         for site_ids, image in enumerate(os.listdir(site_images_path), start=1):
             if image.endswith(('.png', '.jpg')):
                 image_path = os.path.join(site_images_path, image)
@@ -244,54 +202,93 @@ def hough_transforms(site_images_path, hough_output_path, dp=1, min_dist=5, para
                 circles = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, dp=dp, minDist=min_dist, param1=param1, param2=param2, minRadius=min_radius, maxRadius=max_radius)
                 if circles is not None:
                     circles = np.uint16(np.around(circles))
+                    detected_circles[site_ids] = circles[0, :]
                     for x,y,r in circles[0,:]:
                         # draws the circles on the colour image
-                        cv2.circle(color_image, (x,y), r, (0, 255, 0), 2)
+                        cv2.circle(color_image, (x,y), r, (0, 255, 0), 1)
                         cv2.circle(color_image, (x,y), 2, (0, 0, 255), 3)
                 cv2.imshow(f'Detected Circles Using Hough Transforms for Site {site_ids}', color_image)
-                #cv2.destroyAllWindows()
-                cv2.imwrite(hough_output_path, color_image)
+                else:
+                    print(f"No circles detected for site {site_ids}.")
+                    detected_circles[site_ids] = []
+
+
+                output_file = os.path.join(hough_output_path, f'{site_ids}.png')
+                cv2.imwrite(output_file, color_image)
                 print(f'hough transform image {site_ids} saved to {hough_output_path}')
 
-hough_transforms(site)
+                plt.figure(figsize=(8, 8))
+                plt.imshow(color_image)
+                plt.legend()
+                plt.title("Detected Circles using Hough Transforms")
+                plt.axis("off")  # Hide axes for better visualization
+                plt.show()
+        return detected_circles
 
-# OLD SIZE MASK - REPLACED WITH CANNY EDGES AND HOUGH TRANSFORMS
-
-# making a size mask i.e. if a droplet is within a certain size then do this - this works
-# def size_masking(color_mask, min_droplet_size=10, max_droplet_size=10000):
-#     size_mask = False
-#     if size_mask:
-#         #for site_ids, image in enumerate(os.listdir(site_images_path), start=1):
-#         contours, _ = cv2.findContours(color_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-#             #tgt_contour = None
-#         tgt_features = [] # storing features in image in a list
-#         masked_image = np.zeros_like(color_mask, dtype=np.uint8)
-#             #print(f"masked_image {site_ids} type is: {type(masked_image)}")
-#             #print(f"masked_image {site_ids} shape is {masked_image.shape}")
-#         for contour in contours:
-#             droplet_area = cv2.contourArea(contour)
-#               # what are the actual sizes???????
-#                 #print(f"min size is {min_droplet_size} and max size is {max_droplet_size}")
-#             if min_droplet_size < droplet_area < max_droplet_size:
-#                 print(f" droplet area {droplet_area} is ok")
-#                 M = cv2.moments(contour)  # this gives the contour area
-#                 perimeter = cv2.arcLength(contour, True)  # identifies if shape is a closed loop i.e. circle
-#                 if M['m00'] != 0:
-#                     x_centroid = int(M['m10'] / M['m00'])
-#                     y_centroid = int(M['m01'] / M['m00'])  # x and y centroids
-#                     #print(f"x centroid is {x_centroid} and the y centroid is {y_centroid}")
-#                     tgt_features.append((y_centroid, x_centroid))
-#                     print(f' the target features are {tgt_features}')
-#                 else:
-#                     print('contour has no area and has been skipped')
-#                     #tgt_contour = contour
-#                     #cv2.drawContours(masked_image, [contour],-1, (0,255,0), 3)
-#
-#         return tgt_features
-#
+detected_circles = hough_transforms(site_images_path,min_dist=10, param1=10, param2=10, min_radius=10, max_radius=1000)
+print("Detected circles:", detected_circles)
 
 
-# i need to make some code to center a droplet that is interesting
+ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac'
+from skimage.measure import ransac, CircleModel
+
+def ransac_circle_detection(site_images_path,canny_threshold1=100,canny_threshold2=200,residual_threshold=2,min_radius=1,max_radius=10000):
+    ransac_code = False
+    if ransac_code:
+        if not os.path.exists(ransac_path):
+            os.makedirs(ransac_path)
+        for site_ids, image in enumerate(os.listdir(site_images_path), start=1):
+            if image.endswith(('.png', '.jpg')):
+                image_path = os.path.join(site_images_path, image)
+                image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                edges = cv2.Canny(gray, canny_threshold1, canny_threshold2)
+                y_coords, x_coords = np.nonzero(edges)
+                edge_points = np.column_stack((x_coords, y_coords))
+                print(f"No. edge points detected: {len(edge_points)}")
+
+
+                model_class = CircleModel
+                try:
+                    ransac_model, inliers = ransac(edge_points,model_class, min_samples=3,residual_threshold=residual_threshold,max_trials=1000)
+                except ValueError as e:
+                    print(f"RANSAC failed: {e}")
+                    return
+
+                if ransac_model is not None and ransac_model.params is not None:
+                    center_x, center_y, radius = ransac_model.params
+                    print(f"Detected circle: Center=({center_x:.2f}, {center_y:.2f}), Radius={radius:.2f}")
+
+                    if not (min_radius <= radius <= max_radius):
+                        print("Detected radius is out of the specified bounds.")
+                        return
+                else:
+                    print("No circles detected.")
+                    return
+
+
+                cv2.circle(image, (int(center_x), int(center_y)), int(radius), (0, 255, 0), 2)
+                cv2.circle(image, (int(center_x), int(center_y)), 2, (0, 0, 255), 3)
+
+
+                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+                # Display the image with detected circle
+                plt.figure(figsize=(8, 8))
+                plt.imshow(image_rgb)
+                plt.title("Detected Circles using RANSAC for ")
+                plt.axis("off")  # Hide axes for better visualization
+                plt.show()
+
+                # place some saving code here
+
+                # Return the model parameters if needed
+                return center_x, center_y, radius
+
+ransac_circle_detection(site_images_path)
+
+
+
 
 def image_fun_sites(microscope, site_images_path, autofocus_and_image, tgt_features):
     image_sites = False
@@ -313,23 +310,8 @@ def image_fun_sites(microscope, site_images_path, autofocus_and_image, tgt_featu
 
     #return #autofocus_and_image  # may hash this out later
 
-
-
-masked_contours = False
-if masked_contours:
-    plt.imshow(masked_image)
-    print(f'the target features are {tgt_features}')
-    plt.imshow(cv2.cvtColor(masked_image, cv2.COLOR_BGR2RGB))
-    plt.title('masked image with contours shown')
-    plt.show()
-    image_fun_sites(microscope, site_images_path, autofocus_and_image, tgt_features)
-
-# CHECK that ths works on Thursday 21/11/24. if it does then move onto extracting spectrum at each site and saving it.
-
-# this works, I now need to fix the autofocus as it's still a little blurry. then I can gather some spectra
-#Once that works, move on to image analysis of each spectrum site!
-
 # SPECTRUM GATHERING CODE
+# change features depending on canny/hough/ransac
 
 def gather_spectra(spectrometer, spectra_path, features):
     spectra = True
@@ -428,92 +410,9 @@ csv_to_png(spectra_path, png_output_folder)
 
 # check if this works 22/11/24. if so, then figure out a way to identify certain features in your spectra over the weekend!
 # issues
-# i need to skip images that already exist
 # i need to fix the autofocus
-# i need to improve the feature identifying section - potentially using canny edge detection to identify any features??? - complete
 
 
-# SPECTRA ANALYSIS SECTION!!!
-import pandas as pd
-import numpy as np
-from scipy.signal import find_peaks
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-
-
-def load_spectra(spectrum_file):
-    try:
-        df = pd.read_csv(spectrum_file, skiprows=1, names=["Wavelength", "Intensity"])
-        df = df.astype({"Wavelength": float, "Intensity": float})
-        wavelengths = df['Wavelength'].values
-        spectrum = df['Intensity'].values
-        return wavelengths, spectrum
-    except Exception as e:
-        raise RuntimeError(f"error loading spectrum data for file {spectrum_file}: {e}")
-
-#wavelengths, spectrum = load_spectra(spectrum_file)
-
-def compare_peaks(wavelengths, spectrum, known_lines=None, title="Spectrum"): # add site_ids in here
-    plt.figure(figsize=(12, 6))
-    plt.plot(wavelengths, spectrum, label="Observed Spectrum", color='blue', linewidth=1.5)
-
-    # if known_lines:
-    #     for substance, line_wavelengths in known_lines.items():
-    #         for wavelength in line_wavelengths:
-    #             plt.axvline(x=wavelength, linestyle="--", linewidth=1, label=f"{substance} {wavelength} nm")
-
-    if known_lines:
-        #colors = cm.get_cmap('tab10', len(known_lines))
-        #for idx, (substance, line_wavelengths) in enumerate(known_lines.items()):
-            # color = colors(idx)
-            # for wavelength in line_wavelengths:
-            #     plt.axvline(x=wavelength,linestyle="--",linewidth=1,color=color,label=f"{substance} {wavelength} nm")
-
-        colors = plt.cm.tab10(np.linspace(0, 1, len(known_lines)))
-        for i, (substance, line_wavelengths) in enumerate(known_lines.items()):
-            for j, wavelength in enumerate(line_wavelengths):
-                plt.axvline(x=wavelength, linestyle="--", linewidth=1, color=colors[i])
-            plt.axvline(x=line_wavelengths[0], linestyle="--", linewidth=1, color=colors[i], label=substance)
-
-
-    plt.xlabel("Wavelength (nm)")
-    plt.ylabel("Intensity")
-    plt.title("Spectrum with Detected Peaks for Site") # add site_ids here
-    plt.legend()
-    #plt.grid(alpha=0.5)
-    plt.show()
-
-def process_all_spectra(spectrum_path, known_lines):
-    """
-    Process all spectra files in a given folder.
-    """
-    for file_name in os.listdir(spectrum_path):
-        if file_name.endswith('.csv'):
-            file_path = os.path.join(spectrum_path, file_name)
-            print(f"Processing file: {file_name}")
-
-            try:
-                wavelengths, spectrum = load_spectra(file_path)
-                compare_peaks(wavelengths, spectrum, known_lines, title=f"Spectrum: {file_name}")
-            except RuntimeError as e:
-                print(e)
-
-
-known_lines = {
-    'H$_2$': [656.28, 486.13, 434.05],  # H-alpha, H-beta, H-gamma (in nm)
-    'He': [587.56, 667.82, 447.15],
-    'O$_2$': [630.0, 636.4],
-    'Na':[589.0,589.6],
-    'K':[766.5,770.1],
-    'Ca':[422.7,393.4],
-    'Mg':[285.2,518.4],
-    'N$_2$':[337.1,775.3,868.3],
-    'H$_2$0':[720,820,940,1130],
-    'S':[469.4,545.4,605.1],
-    'Cl$_2$':[258],
-    }
-
-process_all_spectra(spectrum_path, known_lines)
 
 
 

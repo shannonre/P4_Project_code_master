@@ -119,11 +119,6 @@ def preprocess_image(site_images_path):
 
 
 
-
-
-
-
-
 from skimage.measure import ransac, CircleModel
 import numpy as np
 import matplotlib.pyplot as plt
@@ -206,78 +201,61 @@ def ransac_circle_detection(
 ransac_circle_detection(site_images_path)
 
 
+# SPECTRA ANALYSIS CODE.
 
-# trial spectra feature detection
-
-import pandas as pd
-from scipy.signal import find_peaks
 spectrum_path = "C:/Users/shann/PycharmProjects/P4 Project/spectra"
 
-# NEW
+
 import pandas as pd
 import numpy as np
 from scipy.signal import find_peaks
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+from matplotlib.cm import get_cmap
 
 
-def load_spectra(spectrum_file):
+def load_spectra(spectrum_path):
     try:
-        df = pd.read_csv(spectrum_file, skiprows=1, names=["Wavelength", "Intensity"])
+        df = pd.read_csv(spectrum_path, skiprows=1, names=["Wavelength", "Intensity"])
         df = df.astype({"Wavelength": float, "Intensity": float})
         wavelengths = df['Wavelength'].values
         spectrum = df['Intensity'].values
         return wavelengths, spectrum
     except Exception as e:
-        raise RuntimeError(f"error loading spectrum data for file {spectrum_file}: {e}")
+        raise RuntimeError(f"error loading spectrum data: {e}")
 
-#wavelengths, spectrum = load_spectra(spectrum_file)
+#wavelengths, spectrum = load_spectra(spectrum_path)
 
-def compare_peaks(wavelengths, spectrum, known_lines=None, title="Spectrum"): # add site_ids in here
+def handle_multiple_files(folder):
+    spectra = []
+    for file in os.listdir(folder):
+        if file.endswith(".csv"):
+            file_path = os.path.join(folder, file)
+            wavelengths, spectrum = load_spectra(file_path)
+            spectra.append((file, wavelengths, spectrum))
+    return spectra
+
+def compare_peaks(wavelengths, spectrum, known_lines, site_ids): # add site_ids in here
     plt.figure(figsize=(12, 6))
     plt.plot(wavelengths, spectrum, label="Observed Spectrum", color='blue', linewidth=1.5)
 
-    # if known_lines:
-    #     for substance, line_wavelengths in known_lines.items():
-    #         for wavelength in line_wavelengths:
-    #             plt.axvline(x=wavelength, linestyle="--", linewidth=1, label=f"{substance} {wavelength} nm")
+    color_map = get_cmap('tab10')  # change to matplotlib.colormaps.get_cmap('tab10')
+    substance_colors = {substance: color_map(i) for i, substance in enumerate(known_lines.keys())}
 
-    if known_lines:
-        #colors = cm.get_cmap('tab10', len(known_lines))
-        #for idx, (substance, line_wavelengths) in enumerate(known_lines.items()):
-            # color = colors(idx)
-            # for wavelength in line_wavelengths:
-            #     plt.axvline(x=wavelength,linestyle="--",linewidth=1,color=color,label=f"{substance} {wavelength} nm")
-
-        colors = plt.cm.tab10(np.linspace(0, 1, len(known_lines)))
-        for i, (substance, line_wavelengths) in enumerate(known_lines.items()):
-            for j, wavelength in enumerate(line_wavelengths):
-                plt.axvline(x=wavelength, linestyle="--", linewidth=1, color=colors[i])
-            plt.axvline(x=line_wavelengths[0], linestyle="--", linewidth=1, color=colors[i], label=substance)
-
+    peaks, _ = find_peaks(spectrum, prominence=0.1)
+    detected_wavelengths = wavelengths[peaks]
+    for substance, lines in known_lines.items():
+        for line in lines:
+            if any(abs(detected_wavelengths - line) < 1):
+                plt.axvline(x=line, linestyle="--", color=substance_colors[substance], linewidth=1, label=f"{substance}")
+                break
 
     plt.xlabel("Wavelength (nm)")
     plt.ylabel("Intensity")
-    plt.title("Spectrum with Detected Peaks for Site") # add site_ids here
+    plt.title(f"Spectrum with Detected Peaks for Site {site_ids}") # add site_ids here
     plt.legend()
     #plt.grid(alpha=0.5)
     plt.show()
-
-def process_all_spectra(spectrum_path, known_lines):
-    """
-    Process all spectra files in a given folder.
-    """
-    for file_name in os.listdir(spectrum_path):
-        if file_name.endswith('.csv'):
-            file_path = os.path.join(spectrum_path, file_name)
-            print(f"Processing file: {file_name}")
-
-            try:
-                wavelengths, spectrum = load_spectra(file_path)
-                compare_peaks(wavelengths, spectrum, known_lines, title=f"Spectrum: {file_name}")
-            except RuntimeError as e:
-                print(e)
-
 
 known_lines = {
     'H$_2$': [656.28, 486.13, 434.05],  # H-alpha, H-beta, H-gamma (in nm)
@@ -293,6 +271,8 @@ known_lines = {
     'Cl$_2$':[258],
     }
 
-process_all_spectra(spectrum_path, known_lines)
-
-
+site_counter = 1
+for file, wavelengths, spectrum in handle_multiple_files(spectrum_path):
+    print(f' processing file {file}')
+    compare_peaks(wavelengths, spectrum, known_lines, site_ids=site_counter)
+    site_counter +=1
