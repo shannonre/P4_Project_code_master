@@ -273,11 +273,11 @@ def ransac_circle_detection(site_images_path,canny_threshold1=100,canny_threshol
 
                 image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-                # Display the image with detected circle
+
                 plt.figure(figsize=(8, 8))
                 plt.imshow(image_rgb)
-                plt.title("Detected Circles using RANSAC for ")
-                plt.axis("off")  # Hide axes for better visualization
+                plt.title(f"Detected Circles using RANSAC for Site {site_ids}")
+                plt.axis("off")
                 plt.show()
 
                 # place some saving code here
