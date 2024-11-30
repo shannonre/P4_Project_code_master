@@ -29,7 +29,7 @@ hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough'
 def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=10000, param2=10000000, min_radius = 120, max_radius=1000):
     # param 1 defines how many edges are detected using the Canny edge detector (higher vals = fewer edges)
     # param 2 defines how many votes a circle must receive in order for it to be considered a valid circle (higher vals = a higher no. votes needed)
-    hough = True
+    hough = False
     if hough:
         if not os.path.exists(hough_path):
             os.makedirs(hough_path)
@@ -86,14 +86,14 @@ import matplotlib.pyplot as plt
 import cv2
 
 ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac'
-
-def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=10,canny_threshold2=200,residual_threshold=2,min_radius=1,max_radius=10000):
-    ransac_code = False
+# fix issue with ransac detecting one large circle that is not there, instead of the smaller circles that exist in the image.
+def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=1,canny_threshold2=10,residual_threshold=2,min_radius=0,max_radius=100, min_samples=3, max_trials=10000):
+    ransac_code = True
     if ransac_code:
         if not os.path.exists(ransac_path):
             os.makedirs(ransac_path)
         detected_ransac_circles = {}
-        for i, image in enumerate(os.listdir(site_images_path), start=1):
+        for i, image in enumerate(os.listdir(site_images_path)[0:3], start=1):
             if image.endswith(('.png', '.jpg')):
                 image_path = os.path.join(site_images_path, image)
                 image = cv2.imread(image_path, cv2.IMREAD_COLOR)
@@ -106,7 +106,7 @@ def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=10,c
 
                 model_class = CircleModel
                 try:
-                    ransac_model, inliers = ransac(edge_points,model_class, min_samples=3,residual_threshold=residual_threshold,max_trials=1000)
+                    ransac_model, inliers = ransac(edge_points,model_class, min_samples=min_samples,residual_threshold=residual_threshold,max_trials=max_trials)
                 except ValueError as e:
                     print(f"RANSAC failed for site {i}: {e}")
                     continue
@@ -119,7 +119,7 @@ def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=10,c
                         print(f"Detected radius is out of the specified bounds for image {i}.")
                         continue
                     cv2.circle(image, (int(center_x), int(center_y)), int(radius), (255, 0, 0), 2)
-                    cv2.circle(image, (int(center_x), int(center_y)), 2, (0, 0, 255), 3)
+                    #cv2.circle(image, (int(center_x), int(center_y)), 2, (0, 0, 255), 3)
 
                     detected_ransac_circles[i] = (center_x, center_y, radius)
                 else:
@@ -129,10 +129,10 @@ def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=10,c
                 image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
                 plt.figure(figsize=(8, 8))
-                plt.imshow(gray)
+                plt.imshow(image_rgb)
                 plt.title(f"Detected Circles using RANSAC for Image {i}")
                 plt.axis("off")
-                plt.savefig(os.path.join(ransac_path, f'ransac detection {i}'))
+                #plt.savefig(os.path.join(ransac_path, f'ransac detection {i}'))
                 plt.show()
 
                 # place some saving code here
@@ -140,7 +140,7 @@ def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=10,c
                 # Return the model parameters if needed
         return detected_ransac_circles
 
-ransac_circle_detection(site_images_path, ransac_path)
+ransac_circle_detection(site_images_path, ransac_path, residual_threshold=1, min_samples=3, max_trials=10000, canny_threshold1=10, canny_threshold2=100)
 
 sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results"
 
@@ -151,7 +151,11 @@ def sift_feature_detection(site_images_path, sift_results_path):
         if not os.path.exists(sift_results_path):
             os.makedirs(sift_results_path)
 
-        sift = cv2.SIFT_create()
+        sift = cv2.SIFT_create(nfeatures=1000,         # max no. features detected
+        contrastThreshold=0.03,  # lower vals = detect features with less contrast
+        edgeThreshold=5  ,      # lower vals to detect edge like features
+        sigma=0.5               # gaussian blur. lower vals = finer features detected
+    )
 
         for i, image_name in enumerate(os.listdir(site_images_path), start=1):
             if image_name.endswith(('.png', '.jpg')):
@@ -167,6 +171,7 @@ def sift_feature_detection(site_images_path, sift_results_path):
                     x_coord, y_coord = kp.pt
                     tgt_features.append((int(y_coord), int(x_coord)))
                     feature_count += 1
+                    print(f'working on feature {feature_count}')
 
                 print(f"No. target features found in site {i}: {feature_count}")
 

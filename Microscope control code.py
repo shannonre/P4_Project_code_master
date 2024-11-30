@@ -202,6 +202,7 @@ def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=1000
     # param 2 defines how many votes a circle must receive in order for it to be considered a valid circle (higher vals = a higher no. votes needed)
     hough = True
     if hough:
+        tgt_features = []
         if not os.path.exists(hough_path):
             os.makedirs(hough_path)
         detected_circles = {}
@@ -212,13 +213,15 @@ def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=1000
                 grayscale_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
                 #gaussian_blur = cv2.GaussianBlur(grayscale_image, (5, 5), 0)
 
-                circles = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, dp=dp, minDist=min_dist, param1=param1, param2=param2, minRadius=min_radius, maxRadius=max_radius)
+                rows = grayscale_image.shape[0]
+                circles = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, dp=dp, minDist=rows/108, param1=param1, param2=param2, minRadius=min_radius, maxRadius=max_radius)
                 if circles is not None:
                     circles = np.uint16(np.around(circles))
                     detected_circles[site_ids] = circles[0, :]
                     for x,y,r in circles[0,:]:
                         # draws the circles on the colour image
                         cv2.circle(color_image, (x,y), r, (255, 0, 0), 1)
+                        tgt_features.append((y,x))
                         #cv2.circle(color_image, (x,y), 2, (0, 0, 255), 3)
                 #cv2.imshow(f'Detected Circles Using Hough Transforms for Site {site_ids}', color_image)
                 # else:
@@ -237,10 +240,10 @@ def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=1000
                 plt.axis("off")  # Hide axes for better visualization
                 #plt.savefig(os.path.join(hough_path,f'hough circles{site_ids}.png'))
                 plt.show()
-        return detected_circles
+        return detected_circles, tgt_features
 
-detected_circles = hough_transforms(site_images_path, hough_path,min_dist=15, param1=10, param2=100, min_radius=10, max_radius=10000)
-print("Detected circles:", detected_circles)
+#detected_circles, tgt_features_hough = hough_transforms(site_images_path, hough_path, min_dist=1, param1=75, param2=10, min_radius=0, max_radius=20)
+#print("Detected circles:", detected_circles)
 
 
 ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac'
@@ -249,6 +252,7 @@ from skimage.measure import ransac, CircleModel
 def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=10,canny_threshold2=30,residual_threshold=2,min_radius=1,max_radius=10000):
     ransac_code = False
     if ransac_code:
+        tgt_features_ransac = []
         if not os.path.exists(ransac_path):
             os.makedirs(ransac_path)
         detected_ransac_circles = {}
@@ -281,6 +285,7 @@ def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=10,c
                     cv2.circle(image, (int(center_x), int(center_y)), 2, (0, 0, 255), 3)
 
                     detected_ransac_circles[site_ids] = (center_x, center_y, radius)
+                    tgt_features_ransac.append((center_y, center_x))
                 else:
                     print(f"No circles detected for site {site_ids}.")
                     continue
@@ -297,9 +302,9 @@ def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=10,c
                 # place some saving code here
 
                 # Return the model parameters if needed
-        return detected_ransac_circles
+        return detected_ransac_circles, tgt_features_ransac
 
-ransac_circle_detection(site_images_path, ransac_path)
+#detected_ransac_circles, tgt_features_ransac = ransac_circle_detection(site_images_path, ransac_path)
 
 sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results"
 def sift_feature_detection(site_images_path, sift_results_path):
@@ -309,7 +314,11 @@ def sift_feature_detection(site_images_path, sift_results_path):
         if not os.path.exists(sift_results_path):
             os.makedirs(sift_results_path)
 
-        sift = cv2.SIFT_create()
+        sift = cv2.SIFT_create(nfeatures=1000,         # max no. features detected
+        contrastThreshold=0.03,  # lower vals = detect features with less contrast
+        edgeThreshold=5,        # lower vals to detect edge like features
+        sigma=0.5               # gaussian blur. lower vals = finer features detected
+    )
 
         for i, image_name in enumerate(os.listdir(site_images_path), start=1):
             if image_name.endswith(('.png', '.jpg')):
@@ -320,10 +329,14 @@ def sift_feature_detection(site_images_path, sift_results_path):
                 keypoints, descriptors = sift.detectAndCompute(gray, None)
 
                 print(f"Site {i}: detected {len(keypoints)} keypoints")
+                feature_count = 0
+
                 for kp in keypoints:
                     x_coord, y_coord = kp.pt
                     tgt_features.append((int(y_coord), int(x_coord)))
-                    print(f" target feature at (y={y_coord}, x={x_coord})")
+                    feature_count += 1
+                    print(f'working on feature {feature_count}')
+                print(f"No. target features found in site {i}: {feature_count}")
 
                 # Draw keypoints on the image
                 keypoint_image = cv2.drawKeypoints(image, keypoints, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
@@ -342,34 +355,34 @@ def sift_feature_detection(site_images_path, sift_results_path):
         return tgt_features
 
 
-tgt_features = sift_feature_detection(site_images_path, sift_results_path)
+#tgt_features_sift = sift_feature_detection(site_images_path, sift_results_path)
 
 
 
 
-def image_fun_sites(microscope, site_images_path, autofocus_and_image, tgt_features):
-    image_sites = False
-    if image_sites:
-        for site_ids, site_coords in enumerate(tgt_features, start=1): # change this
-            print(f"capturing site {site_ids} at coords {site_coords}")
-            current_pos = microscope.position.copy()
-            tgt_pos = current_pos.copy()
-            tgt_pos['x'] += site_coords[0]
-            tgt_pos['y'] += site_coords[1]
-            microscope.move(tgt_pos)
-            print(f"now moving microscope to {site_ids}")
-
-            # now call image capturing defs
-            autofocus_and_image(microscope, site_images_path, site_ids)
-            tgt_features, masked_image = size_masking(color_mask=color_mask, min_droplet_size=0,max_droplet_size=1e15)
-
-            print('image displayed')
-
-    #return #autofocus_and_image  # may hash this out later
+# def image_fun_sites(microscope, site_images_path, autofocus_and_image, tgt_features):
+#     image_sites = False
+#     if image_sites:
+#         for site_ids, site_coords in enumerate(tgt_features, start=1): # change this
+#             print(f"capturing site {site_ids} at coords {site_coords}")
+#             current_pos = microscope.position.copy()
+#             tgt_pos = current_pos.copy()
+#             tgt_pos['x'] += site_coords[0]
+#             tgt_pos['y'] += site_coords[1]
+#             microscope.move(tgt_pos)
+#             print(f"now moving microscope to {site_ids}")
+#
+#             # now call image capturing defs
+#             autofocus_and_image(microscope, site_images_path, site_ids)
+#             tgt_features, masked_image = size_masking(color_mask=color_mask, min_droplet_size=0,max_droplet_size=1e15)
+#
+#             print('image displayed')
+#
+#     #return #autofocus_and_image  # may hash this out later
 
 # SPECTRUM GATHERING CODE
 # change features depending on canny/hough/ransac
-
+# iterate through a number of features.....
 def gather_spectra(spectrometer, spectra_path, features):
     spectra = False
     if spectra:
@@ -380,7 +393,7 @@ def gather_spectra(spectrometer, spectra_path, features):
                 wavelengths = spectrum[0] # extracting wavelengths
                 intensities = spectrum[1] # extracting intensities
 
-                spectra_save_location = os.path.join(spectra_path, f'spectra of site{site_ids}.csv')  # saving as a csv file
+                spectra_save_location = os.path.join(spectra_path, f'spectra of features for site{site_ids}.csv') #CHANGE THIS DEPENDING ON canny/hough/ransac/sift
                 np.savetxt(spectra_save_location, np.column_stack((wavelengths,intensities)), delimiter=',', header='wavelength,intensity')
                 print(f' spectrum {site_ids} saved to {spectra_save_location}')
             except Exception as e:
@@ -399,9 +412,14 @@ def connect_to_spectrometer():
 def spectra_of_sites(microscope, spectrometer, spectra_path):
     spectra2 = False
     if spectra2:
-        #tgt_features, masked_image = size_masking(color_mask=masks, min_droplet_size=0,max_droplet_size=1e15)
-        features, perimeters = canny_edge_detection(site_images_path, min_droplet_size=10, max_droplet_size=1e15)
-        for site_ids, site_coords in enumerate(features, start=1):
+
+        features, perimeters = canny_edge_detection(site_images_path, canny_path, min_droplet_size=10, max_droplet_size=1e15)
+        # UN-COMMENT THESE
+        #detected_circles, features = hough_transforms(site_images_path, hough_path, min_dist=1, param1=75,param2=10, min_radius=0, max_radius=20)
+        #detected_ransac_circles, features = ransac_circle_detection(site_images_path, ransac_path)
+        #features = sift_feature_detection(site_images_path, sift_results_path)
+
+        for site_ids, site_coords in enumerate(features[0:4], start=1):  # takes spectra of only the first 10 sites (time)
 
             current_pos = microscope.position.copy()
             tgt_pos = current_pos.copy()
