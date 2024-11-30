@@ -78,8 +78,8 @@ def hough_circle_detection(site_images_path,min_dist=10,param1=100,param2=30,min
 
 
 # Example usage
-image_path = "path_to_input_image.jpg"
-#output_path = "path_to_output_image_with_circles.jpg"
+
+
 detected_circles = hough_circle_detection(site_images_path,min_dist=10, param1=10, param2=10, min_radius=10, max_radius=1000)
 print("Detected circles:", detected_circles)
 
@@ -235,40 +235,61 @@ def handle_multiple_files(folder):
             spectra.append((file, wavelengths, spectrum))
     return spectra
 
+spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_results'
+
 def compare_peaks(wavelengths, spectrum, known_lines, site_ids): # add site_ids in here
     plt.figure(figsize=(12, 6))
     plt.plot(wavelengths, spectrum, label="Observed Spectrum", color='blue', linewidth=1.5)
 
-    color_map = get_cmap('tab10')  # change to matplotlib.colormaps.get_cmap('tab10')
-    substance_colors = {substance: color_map(i) for i, substance in enumerate(known_lines.keys())}
+    color_map = plt.colormaps.get_cmap('tab20')  #get_cmap('tab10')  # change to matplotlib.colormaps.get_cmap('tab10')
+    #substance_colors = {substance: color_map(i) for i, substance in enumerate(known_lines.keys())}
+    identified_substances = {}
 
     peaks, _ = find_peaks(spectrum, prominence=0.1)
     detected_wavelengths = wavelengths[peaks]
     for substance, lines in known_lines.items():
         for line in lines:
             if any(abs(detected_wavelengths - line) < 1):
-                plt.axvline(x=line, linestyle="--", color=substance_colors[substance], linewidth=1, label=f"{substance}")
+                if substance not in identified_substances:
+                    identified_substances[substance] = color_map(len(identified_substances)/len(known_lines))
+                plt.axvline(x=line, linestyle="--", color=identified_substances[substance], linewidth=1, label=f"{substance}")
                 break
 
     plt.xlabel("Wavelength (nm)")
     plt.ylabel("Intensity")
     plt.title(f"Spectrum with Detected Peaks for Site {site_ids}") # add site_ids here
     plt.legend()
+    plt.savefig(os.path.join(spectra_results_path, f"spectrum_analysis_site_{site_ids}" ))
     #plt.grid(alpha=0.5)
     plt.show()
 
+# where these are all emission lines
 known_lines = {
-    'H$_2$': [656.28, 486.13, 434.05],  # H-alpha, H-beta, H-gamma (in nm)
+    'H-\u03B1 ': [656.28], # H-alpha, n = 3 to n = 2
+    'H-\u03B2 ':[486.13], # h beta, n =4 to n =2
+    'H-\u03B3 ' : [434.05],  # H gamma n=5 to n=2  the visible emission lines in the balmer series
     'He': [587.56, 667.82, 447.15],
     'O$_2$': [630.0, 636.4],
-    'Na':[589.0,589.6],
-    'K':[766.5,770.1],
-    'Ca':[422.7,393.4],
+    'Na D1':[588.9950],
+    'Na D2': [589.5924], # sodium doublet lines, emission lines from the 3p to 3s transitions in a NA atom
+    'K':[766.5,770.1],  # emission lines in potassium, typically from the 4p → 4s transitions.
+    'Ca':[422.7,393.4],  # calcium H and K lines
     'Mg':[285.2,518.4],
     'N$_2$':[337.1,775.3,868.3],
-    'H$_2$0':[720,820,940,1130],
+    'H$_2$0 ':[720,820,940,1130], #rotational and vibrational transitions in water vapor.
     'S':[469.4,545.4,605.1],
     'Cl$_2$':[258],
+    'Fluorescein $C_20H_12O_5$ E' : [512],
+    'Fluorescein $C_20H_12O_5$ A ' : [498],
+    'Chlorophyll $C_55H_72MgN_4O_5$':[685, 740],
+    'DAPI A':[358]	,
+    'DAPI E':[461],
+    'Cy3 A':[550],
+    'Cy3 E':[570],
+    'Texas Red A':[595],
+    'Texas Red E': [615],
+    'Rhodamine 6G A':[530],
+    'Rhodamine 6G E': [550],
     }
 
 site_counter = 1

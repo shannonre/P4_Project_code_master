@@ -25,14 +25,16 @@ os.makedirs(spectra_path, exist_ok=True)
 # MICROSCOPE IDENTIFIERS
 microscope = ofm_client.find_first_microscope()
 
-rows = 20
-cols = 20
-step_size = 1000
+rows = 3
+cols = 3
+step_size = 250
+
+#Goes through 3 rows and 3 cols for a total of 9 images with a step size of x or y = 1000 per row. Also performs autofocus at each point.
 
 
 # POSITION CHECK
 def position():
-    check_position = True
+    check_position = False
     #def check_position_code:
     if check_position:
         pos = microscope.position
@@ -41,59 +43,70 @@ def position():
         starting_pos = pos.copy() # takes current position of the microscope and stores in a variable (unchanged)
         pos['x'] += 100
         microscope.move(pos) # moves 100 units (pixel units??) along the x-axis
-        assert microscope.position == pos  # checks if microscope has moved as requested
+        assert microscope.position == pos, f"X-axis positioning failed"  # checks if microscope has moved as requested
         pos['x'] -= 100
-        microscope.move(pos) # moves microscope back to its starting position
+        microscope.move(pos), f"X-axis return failed" # moves microscope back to its starting position
+
+        pos['y'] += 100
+        microscope.move(pos)  # Move 100 units along the y-axis
+        assert microscope.position == pos, f"Y-axis positioning failed."
+        pos['y'] -= 100
+        microscope.move(pos)  # Move back to the starting position
+        assert microscope.position == starting_pos,f"Y-axis return failed"  # add expected and received sections
+
         assert microscope.position == starting_pos
         if microscope.position==starting_pos:
             print('positioning is ok')
         else:
             raise ValueError(f'positioning is incorrect, expected {starting_pos} but received {microscope.position}')
             # return
-#position()
+position()
 
 
 # NEW AUTOFOCUS CODE
 def autofocus_and_image(microscope, site_images_path, rows, cols, step_size): #, site_ids):
     os.makedirs(site_images_path, exist_ok=True)
-    print('calibrating microscope stage position with camera...')
-    microscope.calibrate_xy()    # THIS IS NOT WORKING IN Y?????????????????????????? figure out why this is ASAP.
-    print('calibration complete')
+    #print('calibrating microscope stage position with camera...')
+    #microscope.calibrate_xy()    # THIS IS NOT WORKING?????????????????????????? figure out why this is ASAP. - works now (29/11/24)
+    #print('calibration complete')
+    imaging = False
+    if imaging:
+        for row in range(rows):
+            for column in range(cols):
+                image_filename = f'Image_row{row}_col{column}.png' #_site id:{site_ids}.png'
+                image_filepath = os.path.join(site_images_path, image_filename)
 
-    for row in range(rows):
-        for column in range(cols):
-            image_filename = f'Image_row:{row}_col:{column}.png' #_site id:{site_ids}.png'
-            image_filepath = os.path.join(site_images_path, image_filename)
+                if os.path.exists(image_filepath):
+                    print(f'skipping file {image_filepath} as it already exists')
+                    continue
+                #else:
+                    #plt.imread(image_filepath)
+                    #plt.title()
+                    #plt.savefig(image_filepath, f'Image_row{row}_col{column}.png')
 
-            if os.path.exists(image_filepath):
-                print(f'skipping file {image_filepath} as it already exists')
-                continue
-            else:
+                x_position = column * step_size
+                y_position = row * step_size
+                microscope.move_in_pixels(x_position, y_position)
+                pos_array = microscope.get_position_array()  # returns the positions
+                tgt_position = {'x': x_position, 'y': y_position, 'z':pos_array[2]}
+
+                #microscope.move(tgt_position)
+                print('autofocus...')
+                microscope.autofocus()
+
+                print('image capture...')
+                image = microscope.capture_image()
+                image.save(image_filepath)
                 plt.imread(image_filepath)
-                plt.title()
-                plt.savefig(image_filepath, 'Image_row:{row}_col:{column}.png')
-
-            x_position = column * step_size
-            y_position = row * step_size
-            microscope.move_in_pixels(x_position, y_position)
-            pos_array = microscope.get_position_array()  # returns the positions
-            tgt_position = {'x': x_position, 'y': y_position, 'z':pos_array[2]}
-
-            #microscope.move(tgt_position)
-            print('autofocus...')
-            microscope.autofocus()
-
-            print('image capture...')
-            image = microscope.capture_image()
-            image.save(image_filepath)
-            print(f'image saved to {image_filepath}')
-    print('scanning completed')
+                plt.imshow(image)
+                print(f'image saved to {image_filepath}')
+        print('scanning completed')
 
 
 # DISPLYING & SAVING AN IMAGE
 def image_looping(site_images_path): # do i need this?? - turn on when you want axes.
     # reads each image in site_file_path, adds a title and axes and saves to a new folder
-    image_loop = True
+    image_loop = False
     if image_loop:
         print(f"the number of images in site_images is {len(os.listdir(site_images_path))}")
         #for i, image in enumerate(site_images):
@@ -107,7 +120,7 @@ def image_looping(site_images_path): # do i need this?? - turn on when you want 
             plt.ylabel('label this')
             images_path_2 = os.path.join(site_images_2, f'Image_of_site {site_ids}.png')
             #plt.savefig(images_path_2)
-            plt.show()
+            #plt.show()
             plt.close()
             #print(f"image {site_ids} saved to {images_path_2}")
     #return image_loop
@@ -118,8 +131,8 @@ def image_looping(site_images_path): # do i need this?? - turn on when you want 
 
 canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny'
 
-def canny_edge_detection(site_images_path, min_droplet_size=10, max_droplet_size=10000):
-    canny1 = True
+def canny_edge_detection(site_images_path, canny_path, min_droplet_size=1, max_droplet_size=10000):
+    canny1 = False
     all_tgt_features = []
     all_perimeters = []
 
@@ -134,7 +147,7 @@ def canny_edge_detection(site_images_path, min_droplet_size=10, max_droplet_size
 
                 image_path = os.path.join(site_images_path, image)
                 image_array = cv2.imread(image_path, cv2.COLOR_BGR2GRAY) # cv2.IMREAD_GRAYSCALE
-                edges = cv2.Canny(image_array, 100, 200)
+                edges = cv2.Canny(image_array, 1, 200, apertureSize=5)
                 print(f'processing canny edges for image of site id {site_ids}')
                 contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 tgt_features = []
@@ -166,25 +179,25 @@ def canny_edge_detection(site_images_path, min_droplet_size=10, max_droplet_size
                 axs[0].imshow(image_array, cmap='gray')
                 axs[0].set_title(f'Original Image for Site {site_ids}')
                 axs[1].imshow(edges, cmap='gray')
-                axs[1].set_title(f'Edges for Site {site_ids}')
-                plt.show()
-                plt.savefig(f'canny_edges_site{site_ids}')
-                #plt.close()
+                axs[1].set_title(f'Canny Edge Detection for Site {site_ids}')
 
-                for y,x in tgt_features:
-                    axs[1].scatter(x, y, color='red', s=10)
+                #plt.close()
+                #for y,x in tgt_features:
+                    #axs[1].scatter(x, y, color='red', s=10)
+                #plt.show()
+                plt.savefig(os.path.join(canny_path, f'canny_edges_site{site_ids}'))
                 plt.show()
-                plt.close()
+                # plt.close()
 
 
 
     return all_tgt_features, all_perimeters
 
-features, perimeters = canny_edge_detection(site_images_path, min_droplet_size=10, max_droplet_size=1e15)
+features, perimeters = canny_edge_detection(site_images_path, canny_path, min_droplet_size=10, max_droplet_size=1e15)
 
 # HOUGH
 hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough'
-def hough_transforms(site_images_path, hough_output_path, dp=1, min_dist=5, param1=10, param2=10, min_radius = 10, max_radius=1e10):
+def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=10000, param2=10000000, min_radius = 120, max_radius=1000):
     # param 1 defines how many edges are detected using the Canny edge detector (higher vals = fewer edges)
     # param 2 defines how many votes a circle must receive in order for it to be considered a valid circle (higher vals = a higher no. votes needed)
     hough = True
@@ -205,38 +218,40 @@ def hough_transforms(site_images_path, hough_output_path, dp=1, min_dist=5, para
                     detected_circles[site_ids] = circles[0, :]
                     for x,y,r in circles[0,:]:
                         # draws the circles on the colour image
-                        cv2.circle(color_image, (x,y), r, (0, 255, 0), 1)
-                        cv2.circle(color_image, (x,y), 2, (0, 0, 255), 3)
-                cv2.imshow(f'Detected Circles Using Hough Transforms for Site {site_ids}', color_image)
-                else:
-                    print(f"No circles detected for site {site_ids}.")
-                    detected_circles[site_ids] = []
+                        cv2.circle(color_image, (x,y), r, (255, 0, 0), 1)
+                        #cv2.circle(color_image, (x,y), 2, (0, 0, 255), 3)
+                #cv2.imshow(f'Detected Circles Using Hough Transforms for Site {site_ids}', color_image)
+                # else:
+                #     print(f"No circles detected for site {site_ids}.")
+                #     detected_circles[site_ids] = []
 
 
-                output_file = os.path.join(hough_output_path, f'{site_ids}.png')
-                cv2.imwrite(output_file, color_image)
-                print(f'hough transform image {site_ids} saved to {hough_output_path}')
+                #output_file = os.path.join(hough_path, f'{site_ids}.png')
+                #cv2.imwrite(output_file, color_image)
+                print(f'hough transform image {site_ids} saved to {hough_path}')
 
                 plt.figure(figsize=(8, 8))
                 plt.imshow(color_image)
                 plt.legend()
-                plt.title("Detected Circles using Hough Transforms")
+                plt.title(f"Detected Circles using Hough Transforms for Site {site_ids}")
                 plt.axis("off")  # Hide axes for better visualization
+                #plt.savefig(os.path.join(hough_path,f'hough circles{site_ids}.png'))
                 plt.show()
         return detected_circles
 
-detected_circles = hough_transforms(site_images_path,min_dist=10, param1=10, param2=10, min_radius=10, max_radius=1000)
+detected_circles = hough_transforms(site_images_path, hough_path,min_dist=15, param1=10, param2=100, min_radius=10, max_radius=10000)
 print("Detected circles:", detected_circles)
 
 
 ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac'
 from skimage.measure import ransac, CircleModel
 
-def ransac_circle_detection(site_images_path,canny_threshold1=100,canny_threshold2=200,residual_threshold=2,min_radius=1,max_radius=10000):
+def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=10,canny_threshold2=30,residual_threshold=2,min_radius=1,max_radius=10000):
     ransac_code = False
     if ransac_code:
         if not os.path.exists(ransac_path):
             os.makedirs(ransac_path)
+        detected_ransac_circles = {}
         for site_ids, image in enumerate(os.listdir(site_images_path), start=1):
             if image.endswith(('.png', '.jpg')):
                 image_path = os.path.join(site_images_path, image)
@@ -245,47 +260,46 @@ def ransac_circle_detection(site_images_path,canny_threshold1=100,canny_threshol
                 edges = cv2.Canny(gray, canny_threshold1, canny_threshold2)
                 y_coords, x_coords = np.nonzero(edges)
                 edge_points = np.column_stack((x_coords, y_coords))
-                print(f"No. edge points detected: {len(edge_points)}")
+                print(f"No. edge points detected for site {site_ids}: {len(edge_points)}")
 
 
                 model_class = CircleModel
                 try:
-                    ransac_model, inliers = ransac(edge_points,model_class, min_samples=3,residual_threshold=residual_threshold,max_trials=1000)
+                    ransac_model, inliers = ransac(edge_points,model_class, min_samples=3,residual_threshold=residual_threshold,max_trials=100000)
                 except ValueError as e:
-                    print(f"RANSAC failed: {e}")
-                    return
+                    print(f"RANSAC failed for site {site_ids}: {e}")
+                    continue
 
                 if ransac_model is not None and ransac_model.params is not None:
                     center_x, center_y, radius = ransac_model.params
-                    print(f"Detected circle: Center=({center_x:.2f}, {center_y:.2f}), Radius={radius:.2f}")
+                    print(f"Detected circle for site {site_ids}: Center=({center_x:.2f}, {center_y:.2f}), Radius={radius:.2f}")
 
                     if not (min_radius <= radius <= max_radius):
-                        print("Detected radius is out of the specified bounds.")
-                        return
+                        print(f"Detected radius is out of the specified bounds for site {site_ids}.")
+                        continue
+                    cv2.circle(image, (int(center_x), int(center_y)), int(radius), (255, 0, 0), 2)
+                    cv2.circle(image, (int(center_x), int(center_y)), 2, (0, 0, 255), 3)
+
+                    detected_ransac_circles[site_ids] = (center_x, center_y, radius)
                 else:
-                    print("No circles detected.")
-                    return
-
-
-                cv2.circle(image, (int(center_x), int(center_y)), int(radius), (0, 255, 0), 2)
-                cv2.circle(image, (int(center_x), int(center_y)), 2, (0, 0, 255), 3)
-
+                    print(f"No circles detected for site {site_ids}.")
+                    continue
 
                 image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
 
                 plt.figure(figsize=(8, 8))
                 plt.imshow(image_rgb)
                 plt.title(f"Detected Circles using RANSAC for Site {site_ids}")
                 plt.axis("off")
+                plt.savefig(os.path.join(ransac_path, f'ransac detection {site_ids}'))
                 plt.show()
 
                 # place some saving code here
 
                 # Return the model parameters if needed
-                return center_x, center_y, radius
+        return detected_ransac_circles
 
-ransac_circle_detection(site_images_path)
+ransac_circle_detection(site_images_path, ransac_path)
 
 
 
@@ -314,7 +328,7 @@ def image_fun_sites(microscope, site_images_path, autofocus_and_image, tgt_featu
 # change features depending on canny/hough/ransac
 
 def gather_spectra(spectrometer, spectra_path, features):
-    spectra = True
+    spectra = False
     if spectra:
         os.makedirs(spectra_path, exist_ok=True)
         for site_ids, site_coords in enumerate(features, start=1):
@@ -364,7 +378,7 @@ def spectra_of_sites(microscope, spectrometer, spectra_path):
 
 
 def csv_to_png(csv_inputs, png_outputs):
-    csv = True
+    csv = False
     if csv:
         #if not os.path.exists(png_outputs):
         os.makedirs(png_outputs, exist_ok=True)
