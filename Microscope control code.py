@@ -233,7 +233,7 @@ def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=1000
                 plt.figure(figsize=(8, 8))
                 plt.imshow(color_image)
                 plt.legend()
-                plt.title(f"Detected Circles using Hough Transforms for Site {site_ids}")
+                plt.title(f"Detected Features via Hough Transforms for Site {site_ids}")
                 plt.axis("off")  # Hide axes for better visualization
                 #plt.savefig(os.path.join(hough_path,f'hough circles{site_ids}.png'))
                 plt.show()
@@ -300,6 +300,49 @@ def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=10,c
         return detected_ransac_circles
 
 ransac_circle_detection(site_images_path, ransac_path)
+
+sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results"
+def sift_feature_detection(site_images_path, sift_results_path):
+    sift = True
+    if sift:
+        tgt_features = []
+        if not os.path.exists(sift_results_path):
+            os.makedirs(sift_results_path)
+
+        sift = cv2.SIFT_create()
+
+        for i, image_name in enumerate(os.listdir(site_images_path), start=1):
+            if image_name.endswith(('.png', '.jpg')):
+                image_path = os.path.join(site_images_path, image_name)
+                image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+                keypoints, descriptors = sift.detectAndCompute(gray, None)
+
+                print(f"Site {i}: detected {len(keypoints)} keypoints")
+                for kp in keypoints:
+                    x_coord, y_coord = kp.pt
+                    tgt_features.append((int(y_coord), int(x_coord)))
+                    print(f" target feature at (y={y_coord}, x={x_coord})")
+
+                # Draw keypoints on the image
+                keypoint_image = cv2.drawKeypoints(image, keypoints, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                keypoint_image_rgb = cv2.cvtColor(keypoint_image, cv2.COLOR_BGR2RGB)
+
+                plt.figure(figsize=(10, 10))
+                plt.imshow(keypoint_image_rgb)
+                plt.title(f"SIFT Features for Site {i}")
+                plt.axis("off")
+                plt.savefig(os.path.join(sift_results_path, f"sift_features_site_{i}.png"))
+                plt.show()
+
+                descriptors_path = os.path.join(sift_results_path, f"descriptors_site_{i}.npy")
+                np.save(descriptors_path, descriptors)
+        print(f' total no. target features = {tgt_features}')
+        return tgt_features
+
+
+tgt_features = sift_feature_detection(site_images_path, sift_results_path)
 
 
 
