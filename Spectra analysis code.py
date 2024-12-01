@@ -5,6 +5,7 @@ import openflexure_microscope_client as ofm_client
 from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.markers import MarkerStyle
 from matplotlib.pyplot import contour
 import seabreeze
 import seabreeze.spectrometers as sb
@@ -12,7 +13,9 @@ from skimage.measure import CircleModel, ransac
 
 
 
-site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/'
+site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/10j' # images for sample 10j
+#site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJO3'  # images for sample BJ03
+#site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ06'  # images for sample BJ06
 
 import cv2
 import numpy as np
@@ -88,7 +91,7 @@ import cv2
 ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac'
 # fix issue with ransac detecting one large circle that is not there, instead of the smaller circles that exist in the image.
 def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=1,canny_threshold2=10,residual_threshold=2,min_radius=0,max_radius=100, min_samples=3, max_trials=10000):
-    ransac_code = True
+    ransac_code = False
     if ransac_code:
         if not os.path.exists(ransac_path):
             os.makedirs(ransac_path)
@@ -199,7 +202,9 @@ tgt_features = sift_feature_detection(site_images_path, sift_results_path)
 
 # SPECTRA ANALYSIS CODE.
 
-spectrum_path = "C:/Users/shann/PycharmProjects/P4 Project/spectra"
+spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/10j'
+#spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/BJ03'
+#spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/BJ06'
 
 
 import pandas as pd
@@ -231,35 +236,50 @@ def handle_multiple_files(folder):
             spectra.append((file, wavelengths, spectrum))
     return spectra
 
-spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_results'
+spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_results/10j'
+# spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_results/BJ03'
+# spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_results/BJ06'
 
 def compare_peaks(wavelengths, spectrum, known_lines, site_ids): # add site_ids in here
-    compare = False
+    compare = True
     if compare:
+        peaks, _ = find_peaks(spectrum, prominence=0.1)
+        detected_wavelengths = wavelengths[peaks]
+        peak_intensities = spectrum[peaks]
+
         plt.figure(figsize=(12, 6))
         plt.plot(wavelengths, spectrum, label="Observed Spectrum", color='blue', linewidth=1.5)
+        plt.scatter(detected_wavelengths, peak_intensities, color='red', marker='x', label='Detected Peaks')
 
         color_map = plt.colormaps.get_cmap('tab20')  #get_cmap('tab10')  # change to matplotlib.colormaps.get_cmap('tab10')
         #substance_colors = {substance: color_map(i) for i, substance in enumerate(known_lines.keys())}
         identified_substances = {}
 
-        peaks, _ = find_peaks(spectrum, prominence=0.1)
-        detected_wavelengths = wavelengths[peaks]
+
         for substance, lines in known_lines.items():
             for line in lines:
                 if any(abs(detected_wavelengths - line) < 1):
+                    matches = np.where(np.abs(detected_wavelengths - line) < 1)[0]
+                    matched_wavelength = detected_wavelengths[matches[0]]
+                    intensity = spectrum[np.where(wavelengths == matched_wavelength)[0][0]]
+
+                #if any(abs(detected_wavelengths - line) < 1):
                     if substance not in identified_substances:
-                        identified_substances[substance] = color_map(len(identified_substances)/len(known_lines))
-                    plt.axvline(x=line, linestyle="--", color=identified_substances[substance], linewidth=1, label=f"{substance}")
-                    break
+                        identified_substances[substance] = color_map(len(identified_substances) / len(known_lines))
+                        plt.axvline(x=line, linestyle="--", color=identified_substances[substance], linewidth=1, label=f"{substance}")
+                        break
 
         plt.xlabel("Wavelength (nm)")
         plt.ylabel("Intensity")
         plt.title(f"Spectrum with Detected Peaks for Site {site_ids}") # add site_ids here
         plt.legend()
-        plt.savefig(os.path.join(spectra_results_path, f"spectrum_analysis_site_{site_ids}" ))
+        #plt.savefig(os.path.join(spectra_results_path, f"spectrum_analysis_site_{site_ids}" ))
         #plt.grid(alpha=0.5)
         plt.show()
+
+        for substance in identified_substances:
+            print(f" substance is {substance} intensity is {intensity}")
+        #return identified_substances
 
 # where these are all emission lines
 known_lines = {
@@ -290,10 +310,40 @@ known_lines = {
     'Rhodamine 6G E': [550],
     }
 
-sites1 = False
+
+#def relative_abundances():
+
+sites1 = True
 if sites1:
     site_counter = 1
-    for file, wavelengths, spectrum in handle_multiple_files(spectrum_path):
+    for file, wavelengths, spectrum in handle_multiple_files(spectra_path):
         print(f' processing file {file}')
         compare_peaks(wavelengths, spectrum, known_lines, site_ids=site_counter)
         site_counter +=1
+
+
+
+#from scipy.integrate import simps
+
+# def find_concentrations(wavelengths, spectrum):
+#     concentration = False
+#     if concentration:
+#     # Integrate area under the peak
+#     peak_region = (wavelengths >= 490) & (wavelengths <= 510)
+#     area = simps(absorbance[peak_region], wavelengths[peak_region])
+#
+#     # Calibration curve example
+#     calibration_concentrations = [0.1, 0.2, 0.3, 0.4, 0.5]  # Known concentrations
+#     calibration_areas = [10, 20, 30, 40, 50]  # Corresponding areas under curve
+#     slope = np.polyfit(calibration_areas, calibration_concentrations, 1)
+#
+#     # Determine concentration of unknown sample
+#     unknown_concentration = slope[0] * area + slope[1]
+#     print(f"Calculated concentration: {unknown_concentration:.2f} M")
+#
+#     # Plot
+#     plt.plot(wavelengths, absorbance)
+#     plt.title("Simulated Spectrum")
+#     plt.xlabel("Wavelength (nm)")
+#     plt.ylabel("Absorbance")
+#     plt.show()

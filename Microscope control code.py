@@ -12,13 +12,17 @@ import seabreeze
 import seabreeze.spectrometers as sb
 
 # folder where images of sites and spectra are saved
-site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images' # this is where all my trial images go
+site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/10j' # images for sample 10j
+#site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJO3'  # images for sample BJ03
+#site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ06'  # images for sample BJ06
 os.makedirs(site_images_path, exist_ok=True)
 site_images_2 = 'C:/Users/shann/PycharmProjects/P4 Project/site_images_axes'
 os.makedirs(site_images_2, exist_ok=True)
 #actual_site_images_path # where all of the actual site images go
 #os.makedirs(site_images_path, exist_ok=True)
-spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra'
+spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/10j'
+#spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/BJ03'
+#spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/BJ06'
 os.makedirs(spectra_path, exist_ok=True)
 
 
@@ -129,7 +133,9 @@ def image_looping(site_images_path): # do i need this?? - turn on when you want 
 
 # FEATURE IDENTIFICATION
 
-canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny'
+canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/10j'
+#canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/BJ03'
+#canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/BJ06'
 
 def canny_edge_detection(site_images_path, canny_path, min_droplet_size=1, max_droplet_size=10000):
     canny1 = False
@@ -196,7 +202,9 @@ def canny_edge_detection(site_images_path, canny_path, min_droplet_size=1, max_d
 features, perimeters = canny_edge_detection(site_images_path, canny_path, min_droplet_size=10, max_droplet_size=1e15)
 
 # HOUGH
-hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough'
+hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/10j'
+#hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/BJ03'
+#hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/BJ06'
 def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=10000, param2=10000000, min_radius = 120, max_radius=1000):
     # param 1 defines how many edges are detected using the Canny edge detector (higher vals = fewer edges)
     # param 2 defines how many votes a circle must receive in order for it to be considered a valid circle (higher vals = a higher no. votes needed)
@@ -246,7 +254,9 @@ def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=1000
 #print("Detected circles:", detected_circles)
 
 
-ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac'
+ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac/10j'
+#ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac/BJ03'
+#ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac/BJ06'
 from skimage.measure import ransac, CircleModel
 
 def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=10,canny_threshold2=30,residual_threshold=2,min_radius=1,max_radius=10000):
@@ -306,7 +316,9 @@ def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=10,c
 
 #detected_ransac_circles, tgt_features_ransac = ransac_circle_detection(site_images_path, ransac_path)
 
-sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results"
+sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/10j"
+# sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/BJ03"
+# sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/BJ06"
 def sift_feature_detection(site_images_path, sift_results_path):
     sift = True
     if sift:
@@ -387,17 +399,17 @@ def gather_spectra(spectrometer, spectra_path, features):
     spectra = False
     if spectra:
         os.makedirs(spectra_path, exist_ok=True)
-        for site_ids, site_coords in enumerate(features, start=1):
+        for feature_ids, site_coords in enumerate(features, start=1):
             try:
                 spectrum = spectrometer.spectrum()
                 wavelengths = spectrum[0] # extracting wavelengths
                 intensities = spectrum[1] # extracting intensities
 
-                spectra_save_location = os.path.join(spectra_path, f'spectra of features for site{site_ids}.csv') #CHANGE THIS DEPENDING ON canny/hough/ransac/sift
+                spectra_save_location = os.path.join(spectra_path, f'spectra of features for feature{feature_ids}.csv') #CHANGE THIS DEPENDING ON canny/hough/ransac/sift
                 np.savetxt(spectra_save_location, np.column_stack((wavelengths,intensities)), delimiter=',', header='wavelength,intensity')
-                print(f' spectrum {site_ids} saved to {spectra_save_location}')
+                print(f' spectrum {feature_ids} saved to {spectra_save_location}')
             except Exception as e:
-                print(f' error when saving spectrum {site_ids}, {e}')
+                print(f' error when saving spectrum {feature_ids}, {e}')
 
 def connect_to_spectrometer():
     devices = sb.list_devices()
@@ -419,7 +431,7 @@ def spectra_of_sites(microscope, spectrometer, spectra_path):
         #detected_ransac_circles, features = ransac_circle_detection(site_images_path, ransac_path)
         #features = sift_feature_detection(site_images_path, sift_results_path)
 
-        for site_ids, site_coords in enumerate(features[0:4], start=1):  # takes spectra of only the first 10 sites (time)
+        for feature_ids, site_coords in enumerate(features[0:4], start=1):  # takes spectra of only the first 10 sites (time)
 
             current_pos = microscope.position.copy()
             tgt_pos = current_pos.copy()
@@ -431,19 +443,24 @@ def spectra_of_sites(microscope, spectrometer, spectra_path):
 
 
             gather_spectra(spectrometer, spectra_path, features)
-            print(f'spectra saved of site {site_ids}')
+            print(f'spectra saved of feature {feature_ids}')
 
 #spectra_of_sites(microscope, spectrometer, spectra_path)
 
 #spectrometer.close()
 
+from scipy.signal import find_peaks
+import pandas as pd
+relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/10j"
+# relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ03"
+# relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ06"
 
 def csv_to_png(csv_inputs, png_outputs):
     csv = False
     if csv:
         #if not os.path.exists(png_outputs):
         os.makedirs(png_outputs, exist_ok=True)
-        for site_ids, filename in enumerate(os.listdir(csv_inputs), start=1):
+        for feature_ids, filename in enumerate(os.listdir(csv_inputs), start=1):
             if filename.endswith('.csv'):
                 try:
                     csv_filepath =  os.path.join(csv_inputs, filename)
@@ -451,16 +468,33 @@ def csv_to_png(csv_inputs, png_outputs):
                     numpy_data = np.loadtxt(csv_filepath, delimiter=',', skiprows=1)
                     wavelengths = numpy_data[:,0]
                     intensities = numpy_data[:,1]
+                    peaks, properties = find_peaks(intensities, height=10000)
+                    peak_wavelengths = wavelengths[peaks]  # xxx.iloc[peaks]???
+                    peak_intensities = intensities[peaks]
 
-                    # png plot
-                    # plt.figure...
+                    total_intensity = peak_intensities.sum()
+                    relative_abundances = (peak_intensities/total_intensity)*100
+                    relative_abundance_data = pd.DataFrame({
+                        "Wavelength (nm)": peak_wavelengths.values,
+                        "Intensity": peak_intensities.values,
+                        "Relative Abundance (%)": relative_abundances.values})
+                    print(relative_abundance_data)
+
+                    relative_save_location = os.path.join(relative_abundance_path, filename)
+                    relative_abundance_data.to_csv(relative_save_location, index=False)
+
+
                     plt.plot(wavelengths, intensities)
-                    plt.title(f'Spectrum of site {site_ids}')
+                    plt.scatter(peak_wavelengths, peak_intensities, color='red', label='Detected Peaks')
+                    plt.title(f'Spectrum of Feature {feature_ids} with Detected Peaks')
                     plt.xlabel(f'Wavelength (nm)')
                     plt.ylabel(f'Intensity')   # potential units (Wm^-2 nm^-1)')
+                    for x, y in zip(peak_wavelengths, peak_intensities):
+                        plt.text(x, y, f'{x:.1f} nm', fontsize=8, ha='right', va='bottom')
+
                     plt.savefig(png_filepath, format='png')
                     plt.show()
-                    print(f"spectra displayed of site {site_ids}")
+                    print(f"spectra displayed of feature {feature_ids}")
                     #plt.close()
                 except Exception as e:
                     print(f'error is {e}')
@@ -478,7 +512,9 @@ if __name__ == "__main__":
         gather_spectra(spectrometer, spectra_path, features)
 
 #spectra_of_sites(microscope, spectrometer, spectra_path)
-png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png'
+png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/10j'
+# png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ03'
+# png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ06'
 csv_to_png(spectra_path, png_output_folder)
 
 
