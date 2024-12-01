@@ -102,13 +102,14 @@ def autofocus_and_image(microscope, site_images_path, rows, cols, step_size): #,
                 image = microscope.capture_image()
                 image.save(image_filepath)
                 plt.imread(image_filepath)
+
                 plt.imshow(image)
                 print(f'image saved to {image_filepath}')
         print('scanning completed')
 
 
 # DISPLYING & SAVING AN IMAGE
-def image_looping(site_images_path): # do i need this?? - turn on when you want axes.
+def image_looping(site_images_path): # do i need this?? - turn on when you want the scale to be oevrlaid.
     # reads each image in site_file_path, adds a title and axes and saves to a new folder
     image_loop = False
     if image_loop:
@@ -122,6 +123,16 @@ def image_looping(site_images_path): # do i need this?? - turn on when you want 
             plt.title(f'Image of Site No. {site_ids}')
             plt.xlabel('label this')
             plt.ylabel('label this')
+
+            # scale bar section
+            calibration_factor = xxx # TO DETERMINE!!
+            scale_bar_length_um = 10  # µm
+            scale_bar_length_pixels = int(scale_bar_length_um / calibration_factor)
+            x_start = 50
+            y_start = image.shape[0] - 50
+            plt.plot([x_start, x_start + scale_bar_length_pixels], [y_start, y_start], color='white', linewidth=5)
+            plt.text(x_start, y_start - 10, f'{scale_bar_length_um} µm', color='white', fontsize=12, ha='left')
+
             images_path_2 = os.path.join(site_images_2, f'Image_of_site {site_ids}.png')
             #plt.savefig(images_path_2)
             #plt.show()

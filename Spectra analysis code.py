@@ -244,11 +244,12 @@ spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_result
 relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/10j"
 # relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ03"
 # relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ06"
+from matplotlib.colors import Normalize
 
 def compare_peaks(wavelengths, spectrum, known_lines, feature_ids): # add site_ids in here
     compare = True
     if compare:
-        peaks, _ = find_peaks(spectrum, prominence=30, threshold=5, height=(2000,250000))
+        peaks, _ = find_peaks(spectrum, prominence=30, threshold=1, height=(2000,250000))
         detected_wavelengths = wavelengths[peaks]
         peak_intensities = spectrum[peaks]
         peak_wavelengths = detected_wavelengths
@@ -263,14 +264,18 @@ def compare_peaks(wavelengths, spectrum, known_lines, feature_ids): # add site_i
         plt.plot(wavelengths, spectrum, label="Observed Spectrum", color='blue', linewidth=1.5)
         plt.scatter(detected_wavelengths, peak_intensities, color='red', marker='x', label='Detected Peaks')
 
-        color_map = plt.colormaps.get_cmap('tab20')  #get_cmap('tab10')  # change to matplotlib.colormaps.get_cmap('tab10')
+        # normalise color map to ensure it falls over entire range of available colors
+        norm = Normalize(vmin=0, vmax=len(known_lines))
+        color_map = plt.colormaps.get_cmap('Set1')  #get_cmap('tab10')  # change to matplotlib.colormaps.get_cmap('tab10')
+
         #substance_colors = {substance: color_map(i) for i, substance in enumerate(known_lines.keys())}
         identified_substances = {}
+        labels = set()
 
         for substance, lines in known_lines.items():
             for line in lines:
-                if any(abs(detected_wavelengths - line)/line < 0.01):
-                    matches = np.where(np.abs(detected_wavelengths - line)/line < 0.01)[0]
+                if any(abs(detected_wavelengths - line)/line < 0.005):
+                    matches = np.where(np.abs(detected_wavelengths - line)/line < 0.005)[0]
                     for match in matches:
                         matched_wavelength = detected_wavelengths[match]
                         intensity = spectrum[np.where(wavelengths == matched_wavelength)[0][0]]
@@ -286,16 +291,16 @@ def compare_peaks(wavelengths, spectrum, known_lines, feature_ids): # add site_i
                             identified_substances[substance]["intensities"].append(intensity)
                             identified_substances[substance]["relative_abundances"].append(relative_abundances[match])
 
-
-                        substance_color = color_map(len(identified_substances) / len(known_lines))
-                        plt.axvline(x=line, linestyle="--", color=substance_color, linewidth=1, label=f"{substance}")
-
+                        if substance not in labels:
+                            substance_color = color_map(len(identified_substances)) # / len(known_lines))
+                            plt.axvline(x=line, linestyle="--", color=substance_color, linewidth=1, label=f"{substance}")
+                            labels.add(substance)
 
         plt.xlabel("Wavelength (nm)")
         plt.ylabel("Intensity")
         plt.title(f"Spectrum with Detected Peaks for Feature {feature_ids}") # add site_ids here
         plt.legend()
-        #plt.savefig(os.path.join(spectra_results_path, f"spectrum_analysis_site_{site_ids}" ))
+        plt.savefig(os.path.join(spectra_results_path, f"spectrum_analysis_site_{feature_ids}" ))
         #plt.grid(alpha=0.5)
         plt.show()
 
@@ -308,48 +313,48 @@ def compare_peaks(wavelengths, spectrum, known_lines, feature_ids): # add site_i
                 "Wavelength (nm)": data['wavelengths'],#peak_wavelengths,
                 "Intensity": data['intensities'], #peak_intensities,
                 "Relative Abundance (%)": data['relative_abundances']}) #relative_abundances})
-            print(relative_abundance_data)
+            #print(relative_abundance_data)
             all_data.append(relative_abundance_data)
 
-    final_substance_dataframe = pd.DataFrame({
-        "Substance": np.concatenate([data["Substance"] for data in all_data]),
-        "Wavelength (nm)": np.concatenate([data["Wavelength (nm)"] for data in all_data]),
-        "Intensity": np.concatenate([data["Intensity"] for data in all_data]),
-        "Relative Abundance (%)": np.concatenate([data["Relative Abundance (%)"] for data in all_data])
-    })
-    print(final_substance_dataframe)
+        final_substance_dataframe = pd.DataFrame({
+            "Substance": np.concatenate([data["Substance"] for data in all_data]),
+            "Wavelength (nm)": np.concatenate([data["Wavelength (nm)"] for data in all_data]),
+            "Intensity": np.concatenate([data["Intensity"] for data in all_data]),
+            "Relative Abundance (%)": np.concatenate([data["Relative Abundance (%)"] for data in all_data])
+        })
+        print(final_substance_dataframe)
 
-        #return identified_substances
+        return #identified_substances
 
 known_lines = {
     'H-\u03B1 ': [656.28], # H-alpha, n = 3 to n = 2
     'H-\u03B2 ':[486.13], # h beta, n =4 to n =2
     'H-\u03B3 ' : [434.05],  # H gamma n=5 to n=2  the visible emission lines in the balmer series
-    'He': [587.56, 667.82, 447.15],
-    'O$_2$': [630.0, 636.4],
-    'Na D1 E':[588.9950],
-    'Na D2 E': [589.5924], # sodium doublet lines, emission lines from the 3p to 3s transitions in a NA atom
-    'K E':[766.5,770.1],  # emission lines in potassium, typically from the 4p → 4s transitions.
+    'He': [587.56, 667.82, 447.15],  # emission lines
+    'O$_2$': [630.0, 636.4],  # emission lines
+    'Na D1':[588.9950],
+    'Na D2': [589.5924], # sodium doublet lines, emission lines from the 3p to 3s transitions in a NA atom
+    'K':[766.5,770.1],  # emission lines in potassium, typically from the 4p → 4s transitions.
     'Ca H A':[396.8],
-    'Ca K A': [393.4],  # calcium H and K lines
-    'Mg':[285.2,518.4],
-    'N$_2$':[337.1,775.3,868.3],
+    'Ca K A': [393.4],  # calcium H and K absorption lines
+    'Mg':[285.2,518.4], # emission lines
+    'N$_2$':[337.1,775.3,868.3], # emission lines
     'H$_2$0 ':[720,820,940,1130], #rotational and vibrational transitions in water vapor.
-    'S':[469.4,545.4,605.1],
-    'Cl$_2$':[258],
-    'Fluorescein E' : [512],  #$C_{20}H_{12}O_5$
+    'S':[469.4,545.4,605.1], # emission lines
+    'Cl$_2$':[258], # emission
+    'Fluorescein E' : [512],
     'Fluorescein A ' : [498],
-    'Chlorophyll':[685, 740],  # $C_55H_72MgN_4O_5$
+    'Chlorophyll':[685, 740],
     'Chlorophyll a E':[670],
     'Chlorophyll b E': [650],
     'DAPI A':[358],
     'DAPI E':[461],
-    'Cy3 A':[550],
-    'Cy3 E':[570],
+    'Cy3 A':[554],
+    'Cy3 E':[568],
     'Texas Red A':[595],
     'Texas Red E': [615],
     'Rhodamine 6G A':[530],
-    'Rhodamine 6G E': [550],
+    'Rhodamine 6G E': [552],
     }
 
 
