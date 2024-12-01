@@ -475,9 +475,9 @@ def csv_to_png(csv_inputs, png_outputs):
                     total_intensity = peak_intensities.sum()
                     relative_abundances = (peak_intensities/total_intensity)*100
                     relative_abundance_data = pd.DataFrame({
-                        "Wavelength (nm)": peak_wavelengths.values,
-                        "Intensity": peak_intensities.values,
-                        "Relative Abundance (%)": relative_abundances.values})
+                        "Wavelength (nm)": peak_wavelengths,
+                        "Intensity": peak_intensities,
+                        "Relative Abundance (%)": relative_abundances})
                     print(relative_abundance_data)
 
                     relative_save_location = os.path.join(relative_abundance_path, filename)

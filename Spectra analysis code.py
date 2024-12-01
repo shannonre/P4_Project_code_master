@@ -240,12 +240,24 @@ spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_result
 # spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_results/BJ03'
 # spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_results/BJ06'
 
-def compare_peaks(wavelengths, spectrum, known_lines, site_ids): # add site_ids in here
+
+relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/10j"
+# relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ03"
+# relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ06"
+
+def compare_peaks(wavelengths, spectrum, known_lines, feature_ids): # add site_ids in here
     compare = True
     if compare:
-        peaks, _ = find_peaks(spectrum, prominence=0.1)
+        peaks, _ = find_peaks(spectrum, prominence=30, threshold=5, height=(2000,250000))
         detected_wavelengths = wavelengths[peaks]
         peak_intensities = spectrum[peaks]
+        peak_wavelengths = detected_wavelengths
+
+        total_intensity = peak_intensities.sum()
+        relative_abundances = (peak_intensities / total_intensity) * 100
+
+        # relative_save_location = os.path.join(relative_abundance_path, )
+        # relative_abundance_data.to_csv(relative_save_location, index=False)
 
         plt.figure(figsize=(12, 6))
         plt.plot(wavelengths, spectrum, label="Observed Spectrum", color='blue', linewidth=1.5)
@@ -255,52 +267,82 @@ def compare_peaks(wavelengths, spectrum, known_lines, site_ids): # add site_ids 
         #substance_colors = {substance: color_map(i) for i, substance in enumerate(known_lines.keys())}
         identified_substances = {}
 
-
         for substance, lines in known_lines.items():
             for line in lines:
-                if any(abs(detected_wavelengths - line) < 1):
-                    matches = np.where(np.abs(detected_wavelengths - line) < 1)[0]
-                    matched_wavelength = detected_wavelengths[matches[0]]
-                    intensity = spectrum[np.where(wavelengths == matched_wavelength)[0][0]]
+                if any(abs(detected_wavelengths - line)/line < 0.01):
+                    matches = np.where(np.abs(detected_wavelengths - line)/line < 0.01)[0]
+                    for match in matches:
+                        matched_wavelength = detected_wavelengths[match]
+                        intensity = spectrum[np.where(wavelengths == matched_wavelength)[0][0]]
 
-                #if any(abs(detected_wavelengths - line) < 1):
-                    if substance not in identified_substances:
-                        identified_substances[substance] = color_map(len(identified_substances) / len(known_lines))
-                        plt.axvline(x=line, linestyle="--", color=identified_substances[substance], linewidth=1, label=f"{substance}")
-                        break
+                        if substance not in identified_substances:
+                            identified_substances[substance] = {
+                                "wavelengths": [matched_wavelength],
+                                "intensities": [intensity],
+                                "relative_abundances": [relative_abundances[match]]}
+
+                        else:
+                            identified_substances[substance]["wavelengths"].append(matched_wavelength)
+                            identified_substances[substance]["intensities"].append(intensity)
+                            identified_substances[substance]["relative_abundances"].append(relative_abundances[match])
+
+
+                        substance_color = color_map(len(identified_substances) / len(known_lines))
+                        plt.axvline(x=line, linestyle="--", color=substance_color, linewidth=1, label=f"{substance}")
+
 
         plt.xlabel("Wavelength (nm)")
         plt.ylabel("Intensity")
-        plt.title(f"Spectrum with Detected Peaks for Site {site_ids}") # add site_ids here
+        plt.title(f"Spectrum with Detected Peaks for Feature {feature_ids}") # add site_ids here
         plt.legend()
         #plt.savefig(os.path.join(spectra_results_path, f"spectrum_analysis_site_{site_ids}" ))
         #plt.grid(alpha=0.5)
         plt.show()
 
-        for substance in identified_substances:
-            print(f" substance is {substance} intensity is {intensity}")
+        all_data = []
+
+        for substance, data in identified_substances.items():
+            #print(f" substance is {substance} intensity is {intensity}")
+            relative_abundance_data = pd.DataFrame({
+                "Substance": [substance] * len(data["wavelengths"]),
+                "Wavelength (nm)": data['wavelengths'],#peak_wavelengths,
+                "Intensity": data['intensities'], #peak_intensities,
+                "Relative Abundance (%)": data['relative_abundances']}) #relative_abundances})
+            print(relative_abundance_data)
+            all_data.append(relative_abundance_data)
+
+    final_substance_dataframe = pd.DataFrame({
+        "Substance": np.concatenate([data["Substance"] for data in all_data]),
+        "Wavelength (nm)": np.concatenate([data["Wavelength (nm)"] for data in all_data]),
+        "Intensity": np.concatenate([data["Intensity"] for data in all_data]),
+        "Relative Abundance (%)": np.concatenate([data["Relative Abundance (%)"] for data in all_data])
+    })
+    print(final_substance_dataframe)
+
         #return identified_substances
 
-# where these are all emission lines
 known_lines = {
     'H-\u03B1 ': [656.28], # H-alpha, n = 3 to n = 2
     'H-\u03B2 ':[486.13], # h beta, n =4 to n =2
     'H-\u03B3 ' : [434.05],  # H gamma n=5 to n=2  the visible emission lines in the balmer series
     'He': [587.56, 667.82, 447.15],
     'O$_2$': [630.0, 636.4],
-    'Na D1':[588.9950],
-    'Na D2': [589.5924], # sodium doublet lines, emission lines from the 3p to 3s transitions in a NA atom
-    'K':[766.5,770.1],  # emission lines in potassium, typically from the 4p → 4s transitions.
-    'Ca':[422.7,393.4],  # calcium H and K lines
+    'Na D1 E':[588.9950],
+    'Na D2 E': [589.5924], # sodium doublet lines, emission lines from the 3p to 3s transitions in a NA atom
+    'K E':[766.5,770.1],  # emission lines in potassium, typically from the 4p → 4s transitions.
+    'Ca H A':[396.8],
+    'Ca K A': [393.4],  # calcium H and K lines
     'Mg':[285.2,518.4],
     'N$_2$':[337.1,775.3,868.3],
     'H$_2$0 ':[720,820,940,1130], #rotational and vibrational transitions in water vapor.
     'S':[469.4,545.4,605.1],
     'Cl$_2$':[258],
-    'Fluorescein $C_20H_12O_5$ E' : [512],
-    'Fluorescein $C_20H_12O_5$ A ' : [498],
-    'Chlorophyll $C_55H_72MgN_4O_5$':[685, 740],
-    'DAPI A':[358]	,
+    'Fluorescein E' : [512],  #$C_{20}H_{12}O_5$
+    'Fluorescein A ' : [498],
+    'Chlorophyll':[685, 740],  # $C_55H_72MgN_4O_5$
+    'Chlorophyll a E':[670],
+    'Chlorophyll b E': [650],
+    'DAPI A':[358],
     'DAPI E':[461],
     'Cy3 A':[550],
     'Cy3 E':[570],
@@ -318,7 +360,7 @@ if sites1:
     site_counter = 1
     for file, wavelengths, spectrum in handle_multiple_files(spectra_path):
         print(f' processing file {file}')
-        compare_peaks(wavelengths, spectrum, known_lines, site_ids=site_counter)
+        compare_peaks(wavelengths, spectrum, known_lines, feature_ids=site_counter)
         site_counter +=1
 
 
