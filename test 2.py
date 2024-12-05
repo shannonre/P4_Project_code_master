@@ -1,5 +1,66 @@
 # HOLDING SPACE
 
+ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac/10j'
+#ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac/BJ03'
+#ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac/BJ06'
+from skimage.measure import ransac, CircleModel
+
+def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=10,canny_threshold2=30,residual_threshold=2,min_radius=1,max_radius=10000):
+    ransac_code = False
+    if ransac_code:
+        tgt_features_ransac = []
+        if not os.path.exists(ransac_path):
+            os.makedirs(ransac_path)
+        detected_ransac_circles = {}
+        for site_ids, image in enumerate(os.listdir(site_images_path), start=1):
+            if image.endswith(('.png', '.jpg')):
+                image_path = os.path.join(site_images_path, image)
+                image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                edges = cv2.Canny(gray, canny_threshold1, canny_threshold2)
+                y_coords, x_coords = np.nonzero(edges)
+                edge_points = np.column_stack((x_coords, y_coords))
+                print(f"No. edge points detected for site {site_ids}: {len(edge_points)}")
+
+
+                model_class = CircleModel
+                try:
+                    ransac_model, inliers = ransac(edge_points,model_class, min_samples=3,residual_threshold=residual_threshold,max_trials=100000)
+                except ValueError as e:
+                    print(f"RANSAC failed for site {site_ids}: {e}")
+                    continue
+
+                if ransac_model is not None and ransac_model.params is not None:
+                    center_x, center_y, radius = ransac_model.params
+                    print(f"Detected circle for site {site_ids}: Center=({center_x:.2f}, {center_y:.2f}), Radius={radius:.2f}")
+
+                    if not (min_radius <= radius <= max_radius):
+                        print(f"Detected radius is out of the specified bounds for site {site_ids}.")
+                        continue
+                    cv2.circle(image, (int(center_x), int(center_y)), int(radius), (255, 0, 0), 2)
+                    cv2.circle(image, (int(center_x), int(center_y)), 2, (0, 0, 255), 3)
+
+                    detected_ransac_circles[site_ids] = (center_x, center_y, radius)
+                    tgt_features_ransac.append((center_y, center_x))
+                else:
+                    print(f"No circles detected for site {site_ids}.")
+                    continue
+
+                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+                plt.figure(figsize=(8, 8))
+                plt.imshow(image_rgb)
+                plt.title(f"Detected Circles using RANSAC for Site {site_ids}")
+                plt.axis("off")
+                plt.savefig(os.path.join(ransac_path, f'ransac detection {site_ids}'))
+                plt.show()
+
+                # place some saving code here
+
+                # Return the model parameters if needed
+        return detected_ransac_circles, tgt_features_ransac
+
+#detected_ransac_circles, tgt_features_ransac = ransac_circle_detection(site_images_path, ransac_path)
 
 
 # # OLD SIZE MASK - REPLACED WITH CANNY EDGES AND HOUGH TRANSFORMS
@@ -38,6 +99,63 @@
 # #
 
 
+
+ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac'
+# fix issue with ransac detecting one large circle that is not there, instead of the smaller circles that exist in the image.
+def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=1,canny_threshold2=10,residual_threshold=2,min_radius=0,max_radius=100, min_samples=3, max_trials=10000):
+    ransac_code = False
+    if ransac_code:
+        if not os.path.exists(ransac_path):
+            os.makedirs(ransac_path)
+        detected_ransac_circles = {}
+        for i, image in enumerate(os.listdir(site_images_path)[0:3], start=1):
+            if image.endswith(('.png', '.jpg')):
+                image_path = os.path.join(site_images_path, image)
+                image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                edges = cv2.Canny(gray, canny_threshold1, canny_threshold2)
+                y_coords, x_coords = np.nonzero(edges)
+                edge_points = np.column_stack((x_coords, y_coords))
+                print(f"No. edge points detected for image {i}: {len(edge_points)}")
+
+
+                model_class = CircleModel
+                try:
+                    ransac_model, inliers = ransac(edge_points,model_class, min_samples=min_samples,residual_threshold=residual_threshold,max_trials=max_trials)
+                except ValueError as e:
+                    print(f"RANSAC failed for site {i}: {e}")
+                    continue
+
+                if ransac_model is not None and ransac_model.params is not None:
+                    center_x, center_y, radius = ransac_model.params
+                    print(f"Detected circle for site {i}: Center=({center_x:.2f}, {center_y:.2f}), Radius={radius:.2f}")
+
+                    if not (min_radius <= radius <= max_radius):
+                        print(f"Detected radius is out of the specified bounds for image {i}.")
+                        continue
+                    cv2.circle(image, (int(center_x), int(center_y)), int(radius), (255, 0, 0), 2)
+                    #cv2.circle(image, (int(center_x), int(center_y)), 2, (0, 0, 255), 3)
+
+                    detected_ransac_circles[i] = (center_x, center_y, radius)
+                else:
+                    print(f"No circles detected for image {i}.")
+                    continue
+
+                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+                plt.figure(figsize=(8, 8))
+                plt.imshow(image_rgb)
+                plt.title(f"Detected Circles using RANSAC for Image {i}")
+                plt.axis("off")
+                #plt.savefig(os.path.join(ransac_path, f'ransac detection {i}'))
+                plt.show()
+
+                # place some saving code here
+
+                # Return the model parameters if needed
+        return detected_ransac_circles
+
+ransac_circle_detection(site_images_path, ransac_path, residual_threshold=1, min_samples=3, max_trials=10000, canny_threshold1=10, canny_threshold2=100)
 
 # # FIX OR REMOVE THIS? A good feature identifying section may remove the need for colour identification at this stage? Can extract from spectra later.
 # def color_masking(site_images_path):

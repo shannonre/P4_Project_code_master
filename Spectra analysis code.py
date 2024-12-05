@@ -14,7 +14,7 @@ from skimage.measure import CircleModel, ransac
 
 
 site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/10j' # images for sample 10j
-#site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJO3'  # images for sample BJ03
+#site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ03'  # images for sample BJ03
 #site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ06'  # images for sample BJ06
 
 import cv2
@@ -28,16 +28,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough'
+hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/10j'
 def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=10000, param2=10000000, min_radius = 120, max_radius=1000):
     # param 1 defines how many edges are detected using the Canny edge detector (higher vals = fewer edges)
     # param 2 defines how many votes a circle must receive in order for it to be considered a valid circle (higher vals = a higher no. votes needed)
-    hough = False
+    hough = True
     if hough:
+        tgt_features_hough = []
         if not os.path.exists(hough_path):
             os.makedirs(hough_path)
         detected_circles = {}
-        for site_ids, image in enumerate(os.listdir(site_images_path), start=1):
+        for site_ids, image in enumerate(os.listdir(site_images_path)[0:1], start=1):
             if image.endswith(('.png', '.jpg')):
                 image_path = os.path.join(site_images_path, image)
                 color_image = cv2.imread(image_path, cv2.IMREAD_COLOR)
@@ -49,17 +50,10 @@ def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=1000
                 if circles is not None:
                     circles = np.uint16(np.around(circles))
                     detected_circles[site_ids] = circles[0, :]
-                    # for x,y,r in circles[0,:]:
-                    #     # draws the circles on the colour image
-                    #     cv2.circle(color_image, (x,y), r, (255, 0, 0), 1)
-                    #     #cv2.circle(color_image, (x,y), 2, (0, 0, 255), 3)
-                    for i in circles[0, :]:
-                        center = (i[0], i[1])
-                        # circle center
-                        #cv2.circle(color_image, center, 1, (0, 100, 100), 3)
-                        # circle outline
-                        radius = i[2]
-                        cv2.circle(color_image, center, radius, (255, 0, 0), 1)
+                    for x, y, r in circles[0, :]:
+                        # draws the circles on the colour image
+                        cv2.circle(color_image, (x, y), r, (255, 0, 0), 1)
+                        tgt_features_hough.append((y, x))
                 #cv2.imshow(f'Detected Circles Using Hough Transforms for Site {site_ids}', color_image)
                 # else:
                 #     print(f"No circles detected for site {site_ids}.")
@@ -75,12 +69,14 @@ def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=1000
                 plt.legend()
                 plt.title(f"Detected Features via Hough Transforms for Site {site_ids}")
                 plt.axis("off")  # Hide axes for better visualization
-                plt.savefig(os.path.join(hough_path,f'hough circles{site_ids}.png'))
+                #plt.savefig(os.path.join(hough_path,f'hough circles{site_ids}.png'))
                 plt.show()
-        return detected_circles
+        return detected_circles, tgt_features_hough
 
-detected_circles = hough_transforms(site_images_path, hough_path, min_dist=1, param1=75, param2=10, min_radius=0, max_radius=20)
+detected_circles, tgt_features_hough = hough_transforms(site_images_path, hough_path, min_dist=1, param1=75, param2=10, min_radius=0, max_radius=20)
 print("Detected circles:", detected_circles)
+#print(f' Hough target features are... {tgt_features_hough}')
+print(f' The number of Hough target features are {len(tgt_features_hough)}')
 
 
 from skimage.measure import ransac, CircleModel
@@ -88,79 +84,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 
-ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac'
-# fix issue with ransac detecting one large circle that is not there, instead of the smaller circles that exist in the image.
-def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=1,canny_threshold2=10,residual_threshold=2,min_radius=0,max_radius=100, min_samples=3, max_trials=10000):
-    ransac_code = False
-    if ransac_code:
-        if not os.path.exists(ransac_path):
-            os.makedirs(ransac_path)
-        detected_ransac_circles = {}
-        for i, image in enumerate(os.listdir(site_images_path)[0:3], start=1):
-            if image.endswith(('.png', '.jpg')):
-                image_path = os.path.join(site_images_path, image)
-                image = cv2.imread(image_path, cv2.IMREAD_COLOR)
-                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                edges = cv2.Canny(gray, canny_threshold1, canny_threshold2)
-                y_coords, x_coords = np.nonzero(edges)
-                edge_points = np.column_stack((x_coords, y_coords))
-                print(f"No. edge points detected for image {i}: {len(edge_points)}")
-
-
-                model_class = CircleModel
-                try:
-                    ransac_model, inliers = ransac(edge_points,model_class, min_samples=min_samples,residual_threshold=residual_threshold,max_trials=max_trials)
-                except ValueError as e:
-                    print(f"RANSAC failed for site {i}: {e}")
-                    continue
-
-                if ransac_model is not None and ransac_model.params is not None:
-                    center_x, center_y, radius = ransac_model.params
-                    print(f"Detected circle for site {i}: Center=({center_x:.2f}, {center_y:.2f}), Radius={radius:.2f}")
-
-                    if not (min_radius <= radius <= max_radius):
-                        print(f"Detected radius is out of the specified bounds for image {i}.")
-                        continue
-                    cv2.circle(image, (int(center_x), int(center_y)), int(radius), (255, 0, 0), 2)
-                    #cv2.circle(image, (int(center_x), int(center_y)), 2, (0, 0, 255), 3)
-
-                    detected_ransac_circles[i] = (center_x, center_y, radius)
-                else:
-                    print(f"No circles detected for image {i}.")
-                    continue
-
-                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-                plt.figure(figsize=(8, 8))
-                plt.imshow(image_rgb)
-                plt.title(f"Detected Circles using RANSAC for Image {i}")
-                plt.axis("off")
-                #plt.savefig(os.path.join(ransac_path, f'ransac detection {i}'))
-                plt.show()
-
-                # place some saving code here
-
-                # Return the model parameters if needed
-        return detected_ransac_circles
-
-ransac_circle_detection(site_images_path, ransac_path, residual_threshold=1, min_samples=3, max_trials=10000, canny_threshold1=10, canny_threshold2=100)
-
-sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results"
+sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/10j"
 
 def sift_feature_detection(site_images_path, sift_results_path):
-    sift = False
+    sift = True
     if sift:
-        tgt_features = []
+        tgt_features_sift = []
+        sift_descriptors = []
         if not os.path.exists(sift_results_path):
             os.makedirs(sift_results_path)
 
-        sift = cv2.SIFT_create(nfeatures=1000,         # max no. features detected
+        sift = cv2.SIFT_create(nfeatures=20000,         # max no. features detected
         contrastThreshold=0.03,  # lower vals = detect features with less contrast
         edgeThreshold=5  ,      # lower vals to detect edge like features
-        sigma=0.5               # gaussian blur. lower vals = finer features detected
-    )
+        sigma=0.5)              # gaussian blur. lower vals = finer features detected
 
-        for i, image_name in enumerate(os.listdir(site_images_path), start=1):
+        for i, image_name in enumerate(os.listdir(site_images_path)[0:1], start=1):
             if image_name.endswith(('.png', '.jpg')):
                 image_path = os.path.join(site_images_path, image_name)
                 image = cv2.imread(image_path, cv2.IMREAD_COLOR)
@@ -168,15 +107,16 @@ def sift_feature_detection(site_images_path, sift_results_path):
 
                 keypoints, descriptors = sift.detectAndCompute(gray, None)
 
-                print(f"Site {i}: detected {len(keypoints)} keypoints")
+                #print(f"Site {i}: detected {len(keypoints)} keypoints")
                 feature_count = 0
                 for kp in keypoints:
                     x_coord, y_coord = kp.pt
-                    tgt_features.append((int(y_coord), int(x_coord)))
+                    tgt_features_sift.append((int(y_coord), int(x_coord)))
+                    sift_descriptors.append(descriptors)
                     feature_count += 1
-                    print(f'working on feature {feature_count}')
+                    #print(f'working on feature {feature_count}')
 
-                print(f"No. target features found in site {i}: {feature_count}")
+                #print(f"No. target features found in site {i}: {feature_count}")
 
                 keypoint_image = cv2.drawKeypoints(image, keypoints, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
                 keypoint_image_rgb = cv2.cvtColor(keypoint_image, cv2.COLOR_BGR2RGB)
@@ -185,18 +125,69 @@ def sift_feature_detection(site_images_path, sift_results_path):
                 plt.imshow(keypoint_image_rgb)
                 plt.title(f"SIFT Features for Site {i}")
                 plt.axis("off")
-                plt.savefig(os.path.join(sift_results_path, f"sift_features_image_{i}.png"))
+                #plt.savefig(os.path.join(sift_results_path, f"sift_features_image_{i}.png"))
                 plt.show()
 
                 descriptors_path = os.path.join(sift_results_path, f"descriptors_image_{i}.npy")
-                np.save(descriptors_path, descriptors)
+                #np.save(descriptors_path, descriptors)
         #print(f' total no. target features = {tgt_features}')
-        return tgt_features
+        return tgt_features_sift , sift_descriptors
 
 
-tgt_features = sift_feature_detection(site_images_path, sift_results_path)
+tgt_features_sift, sift_descriptors = sift_feature_detection(site_images_path, sift_results_path)
+#print(f'SIFT target features are {tgt_features_sift}')
+print(f'The number of SIFT target features are {len(tgt_features_sift)}')
+print(f'The number of SIFT descriptors are {len(sift_descriptors)}')
 
 
+# finding common coordinates...
+hough_set = set(tgt_features_hough)
+sift_set = set(tgt_features_sift)
+common_coords = hough_set.intersection(sift_set)
+print(f'The number of common coordinates is {len(common_coords)}')
+filtered_sift_coords = [(y, x) for y, x in tgt_features_sift if (x, y) in common_coords]  # to use when gathering spectra
+
+
+
+
+
+# filtered_sift_coords = [(y, x) for y, x in tgt_features_sift if (x, y) in common_coords]
+# for i, image_name in enumerate(os.listdir(site_images_path)[0:1], start=1):
+#     if image_name.endswith(('.png', '.jpg')):
+#         image_path = os.path.join(site_images_path, image_name)
+#         image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+#         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+#         sift_keypoints = [cv2.KeyPoint(x=x, y=y, size=1.0, angle=0, response=0, octave=0, class_id=0) for y, x in
+#                           filtered_sift_coords]
+#
+#         img = cv2.drawKeypoints(image, sift_keypoints, image)
+#         plt.figure(figsize=(10, 10))
+#         plt.imshow(img)
+#         #for y, x in filtered_sift_coords:
+#          #   plt.plot(x, y, 'ro', markersize=5)  #red circle with size 5
+#         plt.title(f"Image: {image_name}")
+#         plt.show()
+
+
+
+# # Assuming:
+# # - filtered_sift_coords is a list of tuples (y, x)
+# # - sift_descriptors is a list of descriptors, corresponding to the coordinates in filtered_sift_coords
+# filtered_sift_coords = [(y, x) for y, x in tgt_features_sift if (x, y) in common_coords]
+# for i, image_name in enumerate(os.listdir(site_images_path)[2:3], start=1):
+#     if image_name.endswith(('.png', '.jpg')):
+#         image_path = os.path.join(site_images_path, image_name)
+#         image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+#         sift_keypoints = [cv2.KeyPoint(x=x, y=y, size=1.0, angle=0, response=float(np.mean(descriptor)), octave=0, class_id=0)
+#                           for (y, x), descriptor in zip(filtered_sift_coords, sift_descriptors)]
+#
+#         img = cv2.drawKeypoints(image, sift_keypoints, image)
+#         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+#
+#         plt.figure(figsize=(10, 10))
+#         plt.imshow(img)
+#         plt.title(f"Image: {image_name}")
+#         plt.show()
 
 
 
@@ -237,19 +228,64 @@ def handle_multiple_files(folder):
     return spectra
 
 spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_results/10j'
-# spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_results/BJ03'
-# spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_results/BJ06'
+#spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_results/BJ03'
+#spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_results/BJ06'
 
 
 relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/10j"
-# relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ03"
-# relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ06"
+# #relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ03"
+#relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ06"
 from matplotlib.colors import Normalize
 
+def csv_to_png(csv_inputs, png_outputs):
+    csv = False
+    if csv:
+        #if not os.path.exists(png_outputs):
+        os.makedirs(png_outputs, exist_ok=True)
+        for feature_ids, filename in enumerate(os.listdir(csv_inputs)[0:2], start=1):
+            if filename.endswith('.csv'):
+                try:
+                    csv_filepath =  os.path.join(csv_inputs, filename)
+                    png_filepath = os.path.join(png_outputs, filename.replace('.csv', '.png'))
+                    numpy_data = np.loadtxt(csv_filepath, delimiter=',', skiprows=1)
+                    wavelengths = numpy_data[:,0]
+                    intensities = numpy_data[:,1]
+                    #peaks, _ = find_peaks(spectrum, prominence=50, threshold=1, height=(2000, 250000))
+                    peaks, properties = find_peaks(intensities, height=10000)
+                    peak_wavelengths = wavelengths[peaks]  # xxx.iloc[peaks]???
+                    peak_intensities = intensities[peaks]
+
+
+                    plt.plot(wavelengths, intensities)
+                    plt.scatter(peak_wavelengths, peak_intensities, color='red', marker='x', label='Detected Peaks')
+                    plt.title(f'Spectrum of Feature {feature_ids} with Detected Peaks')
+                    plt.xlabel(f'Wavelength (nm)')
+                    plt.ylabel(f'Intensity')   # potential units (Wm^-2 nm^-1)')
+                    for x, y in zip(peak_wavelengths, peak_intensities):
+                        plt.text(x, y + 0.02 * max(peak_intensities), f"{x:.1f} nm", fontsize=8, ha="center",
+                                 va="bottom")
+
+                    #plt.savefig(png_filepath, format='png')
+                    plt.legend()
+                    #plt.show()
+
+                    print(f"spectra displayed of feature {feature_ids}")
+                    #plt.close()
+                except Exception as e:
+                    print(f'error is {e}')
+
+
+png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/10j'
+png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ03'
+png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ06'
+csv_to_png(spectra_path,png_output_folder)
+
+# add relative abundance tables for each substance
+
 def compare_peaks(wavelengths, spectrum, known_lines, feature_ids): # add site_ids in here
-    compare = True
+    compare = False
     if compare:
-        peaks, _ = find_peaks(spectrum, prominence=30, threshold=1, height=(2000,250000))
+        peaks, _ = find_peaks(spectrum, prominence=50, threshold=1, height=(2000,250000))
         detected_wavelengths = wavelengths[peaks]
         peak_intensities = spectrum[peaks]
         peak_wavelengths = detected_wavelengths
@@ -300,7 +336,7 @@ def compare_peaks(wavelengths, spectrum, known_lines, feature_ids): # add site_i
         plt.ylabel("Intensity")
         plt.title(f"Spectrum with Detected Peaks for Feature {feature_ids}") # add site_ids here
         plt.legend()
-        plt.savefig(os.path.join(spectra_results_path, f"spectrum_analysis_site_{feature_ids}" ))
+        #plt.savefig(os.path.join(spectra_results_path, f"spectrum_analysis_site_{feature_ids}" ))
         #plt.grid(alpha=0.5)
         plt.show()
 
@@ -360,7 +396,7 @@ known_lines = {
 
 #def relative_abundances():
 
-sites1 = True
+sites1 = False
 if sites1:
     site_counter = 1
     for file, wavelengths, spectrum in handle_multiple_files(spectra_path):
@@ -368,29 +404,163 @@ if sites1:
         compare_peaks(wavelengths, spectrum, known_lines, feature_ids=site_counter)
         site_counter +=1
 
+from PIL import Image, ImageDraw, ImageFont
+import matplotlib.patches as patches
+
+# edit this later!!
+def image_looping(site_images_path, output_path):
+    loop = False
+    if loop:
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+
+        print(f"Processing images in {site_images_path}...")
+        image_files = sorted(os.listdir(site_images_path))
+        print(f"Number of images found: {len(image_files)}")
+
+        for site_ids, site_file_name in enumerate(image_files, start=1):
+            site_file_path = os.path.join(site_images_path, site_file_name)
+            image = cv2.imread(site_file_path)
+
+            if image is None:
+                print(f"Skipping {site_file_name}, unable to read the file.")
+                continue
+
+            print(f"Working on image {site_ids} of {len(image_files)}: {site_file_name}")
+
+            sensor_width = 3680  # in microns
+            sensor_height = 2760  # in microns
+            sensor_resolution = (3280, 2464)
+            image_resolution = (832, 624)
+            magnification = 40
+
+            fov_width = sensor_width / magnification
+            fov_height = sensor_height / magnification
+            scale_microns_per_pixel = fov_width / image_resolution[0]
+
+            scale_bar_length_microns = 10
+            scale_bar_length_pixels = int(scale_bar_length_microns / scale_microns_per_pixel)
+            position = (50, image.shape[0] - 50)
+            scale_bar_thickness = 5
+            scale_bar_color = "black"
+
+            fig, ax = plt.subplots(figsize=(8, 8))
+            ax.imshow(image)
+            ax.axis("off")
+
+            scale_bar = patches.Rectangle(
+                position, scale_bar_length_pixels, scale_bar_thickness, color=scale_bar_color)
+            ax.add_patch(scale_bar)
+
+            mu = "\u03bc"  # Unicode for 'mu'
+            label = f"{scale_bar_length_microns} {mu}m"
+            label_position = (position[0], position[1] - 30)  # Above the scale bar
+            ax.text(
+                label_position[0],
+                label_position[1],
+                label,
+                color=scale_bar_color,
+                fontsize=12,
+                ha="left",
+                va="top",)
+            # plt.figure(figsize=(8, 8))
+            # plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+            plt.title(f"Image of Site {site_ids}")
+            plt.axis('off')
+
+            output_file = os.path.join(output_path, f'Image_of_site_{site_ids}_with_scale.png')
+            plt.savefig(output_file, bbox_inches='tight', pad_inches=0)
+            #plt.close()
+            #plt.show()
+
+            #print(f"Saved processed image to {output_file}")
+
+output_path ='C:/Users/shann/PycharmProjects/P4 Project/scale/10j'
+#output_path ='C:/Users/shann/PycharmProjects/P4 Project/scale/BJ03'
+#output_path ='C:/Users/shann/PycharmProjects/P4 Project/scale/BJ06'
+image_looping(site_images_path, output_path)
 
 
-#from scipy.integrate import simps
+background_spectra_path = "C:/Users/shann/PycharmProjects/P4 Project/background"
+import os
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 
-# def find_concentrations(wavelengths, spectrum):
-#     concentration = False
-#     if concentration:
-#     # Integrate area under the peak
-#     peak_region = (wavelengths >= 490) & (wavelengths <= 510)
-#     area = simps(absorbance[peak_region], wavelengths[peak_region])
-#
-#     # Calibration curve example
-#     calibration_concentrations = [0.1, 0.2, 0.3, 0.4, 0.5]  # Known concentrations
-#     calibration_areas = [10, 20, 30, 40, 50]  # Corresponding areas under curve
-#     slope = np.polyfit(calibration_areas, calibration_concentrations, 1)
-#
-#     # Determine concentration of unknown sample
-#     unknown_concentration = slope[0] * area + slope[1]
-#     print(f"Calculated concentration: {unknown_concentration:.2f} M")
-#
-#     # Plot
-#     plt.plot(wavelengths, absorbance)
-#     plt.title("Simulated Spectrum")
-#     plt.xlabel("Wavelength (nm)")
-#     plt.ylabel("Absorbance")
-#     plt.show()
+# fix this later
+def subtract_background_from_folder(site_folder, background_csv, output_folder=None, plot=False):
+    background = False
+    if background:
+
+        # Load the background spectrum
+        background_spectrum = pd.read_csv(background_csv, header=None, names=["Wavelength", "Intensity"])
+
+        # Create the output folder if it doesn't exist and saving is enabled
+        if output_folder and not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+
+        # Dictionary to store noise-subtracted spectra
+        noise_subtracted_spectra = {}
+
+        # Iterate through all files in the site folder
+        for site_file_name in sorted(os.listdir(site_folder)):
+            site_file_path = os.path.join(site_folder, site_file_name)
+
+            # Check if the file is a CSV
+            if not site_file_name.endswith(".csv"):
+                continue
+
+            # Load the site spectrum
+            site_spectrum = pd.read_csv(site_file_path, header=None, names=["Wavelength", "Intensity"])
+
+            # Interpolate the background spectrum to match the site spectrum's wavelengths
+            interpolated_background = np.interp(
+                site_spectrum["Wavelength"],
+                background_spectrum["Wavelength"],
+                background_spectrum["Intensity"]
+            )
+
+            # Subtract the background spectrum from the site spectrum
+            subtracted_intensities = site_spectrum["Intensity"] - interpolated_background
+
+            # Create a DataFrame for the noise-subtracted spectrum
+            noise_subtracted_spectrum = pd.DataFrame({
+                "Wavelength": site_spectrum["Wavelength"],
+                "Subtracted Intensity": subtracted_intensities
+            })
+
+            # Save the noise-subtracted spectrum to a CSV if an output folder is specified
+            if output_folder:
+                output_csv_path = os.path.join(output_folder, f"noise_subtracted_{site_file_name}")
+                noise_subtracted_spectrum.to_csv(output_csv_path, index=False)
+
+            # Store the spectrum in the dictionary
+            noise_subtracted_spectra[site_file_name] = noise_subtracted_spectrum
+
+            # Optionally, plot the spectra
+            if plot:
+                plt.figure(figsize=(10, 6))
+                plt.plot(site_spectrum["Wavelength"], site_spectrum["Intensity"], label="Site Spectrum", color="blue")
+                plt.plot(background_spectrum["Wavelength"], background_spectrum["Intensity"], label="Background Spectrum",
+                         color="orange")
+                plt.plot(noise_subtracted_spectrum["Wavelength"], noise_subtracted_spectrum["Subtracted Intensity"],
+                         label="Noise-Subtracted Spectrum", color="green")
+                plt.xlabel("Wavelength (nm)")
+                plt.ylabel("Intensity")
+                plt.title(f"Noise-Subtracted Spectrum for {site_file_name}")
+                plt.legend()
+                plt.grid(alpha=0.5)
+                plt.show()
+
+        return noise_subtracted_spectra
+
+# Example usage:
+# spectra = subtract_background_from_folder(
+#     site_folder="site_spectra_folder",
+#     background_csv="background_spectrum.csv",
+#     output_folder="noise_subtracted_spectra",
+#     plot=True
+# )
+
+
+# noise_subtracted = subtract_background("site_spectrum.csv", background_spectra_path, output_csv="noise_subtracted_spectrum.csv", plot=True)

@@ -13,7 +13,7 @@ import seabreeze.spectrometers as sb
 
 # folder where images of sites and spectra are saved
 site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/10j' # images for sample 10j
-#site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJO3'  # images for sample BJ03
+#site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ03'  # images for sample BJ03
 #site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ06'  # images for sample BJ06
 os.makedirs(site_images_path, exist_ok=True)
 site_images_2 = 'C:/Users/shann/PycharmProjects/P4 Project/site_images_axes'
@@ -27,7 +27,7 @@ os.makedirs(spectra_path, exist_ok=True)
 
 
 # MICROSCOPE IDENTIFIERS
-microscope = ofm_client.find_first_microscope()
+#microscope = ofm_client.find_first_microscope()
 
 rows = 3
 cols = 3
@@ -117,30 +117,60 @@ def image_looping(site_images_path): # do i need this?? - turn on when you want 
         #for i, image in enumerate(site_images):
         for site_ids, site_file_name in enumerate(sorted(os.listdir(site_images_path)), start=1):
             site_file_path = os.path.join(site_images_path, site_file_name)
-            image = plt.imread(site_file_path)
+            image = cv2.imread(site_file_path)
             print(f"working on image no.{site_ids} of {len(os.listdir(site_images_path))}")
-            plt.imshow(np.array(image))
+            #plt.imshow(np.array(image))
             plt.title(f'Image of Site No. {site_ids}')
-            plt.xlabel('label this')
-            plt.ylabel('label this')
+            #plt.xlabel('label this')
+            #plt.ylabel('label this')
 
-            # scale bar section
-            calibration_factor = xxx # TO DETERMINE!!
-            scale_bar_length_um = 10  # µm
-            scale_bar_length_pixels = int(scale_bar_length_um / calibration_factor)
-            x_start = 50
-            y_start = image.shape[0] - 50
-            plt.plot([x_start, x_start + scale_bar_length_pixels], [y_start, y_start], color='white', linewidth=5)
-            plt.text(x_start, y_start - 10, f'{scale_bar_length_um} µm', color='white', fontsize=12, ha='left')
+            sensor_width = 3680  # in microns
+            sensor_height = 2760  # in microns
+            sensor_resolution = (3280, 2464)
+            image_resolution = (832, 624)
+            magnification = 40
+            fov_width = sensor_width / magnification
+            fov_height = sensor_height / magnification
+            scale_x = fov_width / image_resolution[0]
+            scale_y = fov_height / image_resolution[1]
+            print(f"Horizontal scale: {scale_x:.3f} microns/pixel")
+            print(f"Vertical scale: {scale_y:.3f} microns/pixel")
+
+            scale_microns_per_pixel = 0.111  # number of microns per pixel
+            scale_bar_length_microns = 10
+            scale_bar_thickness = 5
+            color = (0,0,0)
+            position = (50, 50)
+            scale_bar_length_pixels = int(scale_bar_length_microns / scale_microns_per_pixel)
+            cv2.rectangle(
+                image,
+                position,  # Top-left corner of the scale bar
+                (position[0] + scale_bar_length_pixels, position[1] + scale_bar_thickness),  # Bottom-right corner
+                color,
+                -1,  # Thickness (-1 fills the rectangle)
+                 )
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 0.5
+            font_thickness = 1
+            label = f"{scale_bar_length_microns} µm"
+            text_size = cv2.getTextSize(label, font, font_scale, font_thickness)[0]
+            text_position = (
+                position[0],
+                position[1] - 10,  # Position above the scale bar
+            )
+
+            cv2.putText(image, label, text_position, font, font_scale, color, font_thickness)
+            plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+
 
             images_path_2 = os.path.join(site_images_2, f'Image_of_site {site_ids}.png')
             #plt.savefig(images_path_2)
-            #plt.show()
-            plt.close()
+            plt.show()
+            #plt.close()
             #print(f"image {site_ids} saved to {images_path_2}")
     #return image_loop
 
-#image_loop = image_looping(site_images_path)
+image_loop = image_looping(site_images_path)
 
 # FEATURE IDENTIFICATION
 
@@ -173,7 +203,7 @@ def canny_edge_detection(site_images_path, canny_path, min_droplet_size=1, max_d
                 for contour in contours:
                     droplet_area = cv2.contourArea(contour)
                     if min_droplet_size < droplet_area < max_droplet_size:
-                        print(f" droplet area {droplet_area} is ok")
+                        #print(f" droplet area {droplet_area} is ok")
                         M = cv2.moments(contour)  # this gives the contour area
                           # identifies if shape is a closed loop i.e. circle
                         if M['m00'] != 0:
@@ -183,8 +213,8 @@ def canny_edge_detection(site_images_path, canny_path, min_droplet_size=1, max_d
                             # print(f"x centroid is {x_centroid} and the y centroid is {y_centroid}")
                             tgt_features.append((y_centroid, x_centroid))
                             perimeters.append(perimeter)
-                            print(f'features for site {site_ids}: {tgt_features}')
-                            print(f'perimeter for site{site_ids}: {perimeters}')
+                            #print(f'features for site {site_ids}: {tgt_features}')
+                            #print(f'perimeter for site{site_ids}: {perimeters}')
 
                         else:
                             print('contour has no area and has been skipped')
@@ -198,12 +228,12 @@ def canny_edge_detection(site_images_path, canny_path, min_droplet_size=1, max_d
                 axs[1].imshow(edges, cmap='gray')
                 axs[1].set_title(f'Canny Edge Detection for Site {site_ids}')
 
-                #plt.close()
+
                 #for y,x in tgt_features:
                     #axs[1].scatter(x, y, color='red', s=10)
                 #plt.show()
                 plt.savefig(os.path.join(canny_path, f'canny_edges_site{site_ids}'))
-                plt.show()
+                #plt.show()
                 # plt.close()
 
 
@@ -219,7 +249,7 @@ hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/10j'
 def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=10000, param2=10000000, min_radius = 120, max_radius=1000):
     # param 1 defines how many edges are detected using the Canny edge detector (higher vals = fewer edges)
     # param 2 defines how many votes a circle must receive in order for it to be considered a valid circle (higher vals = a higher no. votes needed)
-    hough = True
+    hough = False
     if hough:
         tgt_features = []
         if not os.path.exists(hough_path):
@@ -257,83 +287,26 @@ def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=1000
                 plt.legend()
                 plt.title(f"Detected Features via Hough Transforms for Site {site_ids}")
                 plt.axis("off")  # Hide axes for better visualization
-                #plt.savefig(os.path.join(hough_path,f'hough circles{site_ids}.png'))
-                plt.show()
+                plt.savefig(os.path.join(hough_path,f'hough circles{site_ids}.png'))
+                #plt.show()
         return detected_circles, tgt_features
 
 #detected_circles, tgt_features_hough = hough_transforms(site_images_path, hough_path, min_dist=1, param1=75, param2=10, min_radius=0, max_radius=20)
 #print("Detected circles:", detected_circles)
+print("Detected circles:", detected_circles)
+#print(f' Hough target features are... {tgt_features_hough}')
+print(f' The number of Hough target features are {len(tgt_features_hough)}')
 
 
-ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac/10j'
-#ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac/BJ03'
-#ransac_path = 'C:/Users/shann/PycharmProjects/P4 Project/ransac/BJ06'
-from skimage.measure import ransac, CircleModel
-
-def ransac_circle_detection(site_images_path, ransac_path, canny_threshold1=10,canny_threshold2=30,residual_threshold=2,min_radius=1,max_radius=10000):
-    ransac_code = False
-    if ransac_code:
-        tgt_features_ransac = []
-        if not os.path.exists(ransac_path):
-            os.makedirs(ransac_path)
-        detected_ransac_circles = {}
-        for site_ids, image in enumerate(os.listdir(site_images_path), start=1):
-            if image.endswith(('.png', '.jpg')):
-                image_path = os.path.join(site_images_path, image)
-                image = cv2.imread(image_path, cv2.IMREAD_COLOR)
-                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                edges = cv2.Canny(gray, canny_threshold1, canny_threshold2)
-                y_coords, x_coords = np.nonzero(edges)
-                edge_points = np.column_stack((x_coords, y_coords))
-                print(f"No. edge points detected for site {site_ids}: {len(edge_points)}")
-
-
-                model_class = CircleModel
-                try:
-                    ransac_model, inliers = ransac(edge_points,model_class, min_samples=3,residual_threshold=residual_threshold,max_trials=100000)
-                except ValueError as e:
-                    print(f"RANSAC failed for site {site_ids}: {e}")
-                    continue
-
-                if ransac_model is not None and ransac_model.params is not None:
-                    center_x, center_y, radius = ransac_model.params
-                    print(f"Detected circle for site {site_ids}: Center=({center_x:.2f}, {center_y:.2f}), Radius={radius:.2f}")
-
-                    if not (min_radius <= radius <= max_radius):
-                        print(f"Detected radius is out of the specified bounds for site {site_ids}.")
-                        continue
-                    cv2.circle(image, (int(center_x), int(center_y)), int(radius), (255, 0, 0), 2)
-                    cv2.circle(image, (int(center_x), int(center_y)), 2, (0, 0, 255), 3)
-
-                    detected_ransac_circles[site_ids] = (center_x, center_y, radius)
-                    tgt_features_ransac.append((center_y, center_x))
-                else:
-                    print(f"No circles detected for site {site_ids}.")
-                    continue
-
-                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-                plt.figure(figsize=(8, 8))
-                plt.imshow(image_rgb)
-                plt.title(f"Detected Circles using RANSAC for Site {site_ids}")
-                plt.axis("off")
-                plt.savefig(os.path.join(ransac_path, f'ransac detection {site_ids}'))
-                plt.show()
-
-                # place some saving code here
-
-                # Return the model parameters if needed
-        return detected_ransac_circles, tgt_features_ransac
-
-#detected_ransac_circles, tgt_features_ransac = ransac_circle_detection(site_images_path, ransac_path)
 
 sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/10j"
-# sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/BJ03"
-# sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/BJ06"
+#sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/BJ03"
+#sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/BJ06"
 def sift_feature_detection(site_images_path, sift_results_path):
-    sift = True
+    sift = False
     if sift:
-        tgt_features = []
+        tgt_features_sift = []
+        sift_descriptors = []
         if not os.path.exists(sift_results_path):
             os.makedirs(sift_results_path)
 
@@ -351,17 +324,18 @@ def sift_feature_detection(site_images_path, sift_results_path):
 
                 keypoints, descriptors = sift.detectAndCompute(gray, None)
 
-                print(f"Site {i}: detected {len(keypoints)} keypoints")
+                #print(f"Site {i}: detected {len(keypoints)} keypoints")
                 feature_count = 0
 
                 for kp in keypoints:
                     x_coord, y_coord = kp.pt
-                    tgt_features.append((int(y_coord), int(x_coord)))
+                    tgt_features_sift.append((int(y_coord), int(x_coord)))
+                    sift_descriptors.append(descriptors)
                     feature_count += 1
                     print(f'working on feature {feature_count}')
                 print(f"No. target features found in site {i}: {feature_count}")
 
-                # Draw keypoints on the image
+
                 keypoint_image = cv2.drawKeypoints(image, keypoints, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
                 keypoint_image_rgb = cv2.cvtColor(keypoint_image, cv2.COLOR_BGR2RGB)
 
@@ -370,38 +344,28 @@ def sift_feature_detection(site_images_path, sift_results_path):
                 plt.title(f"SIFT Features for Site {i}")
                 plt.axis("off")
                 plt.savefig(os.path.join(sift_results_path, f"sift_features_site_{i}.png"))
-                plt.show()
+                #plt.show()
 
                 descriptors_path = os.path.join(sift_results_path, f"descriptors_site_{i}.npy")
                 np.save(descriptors_path, descriptors)
-        print(f' total no. target features = {tgt_features}')
-        return tgt_features
+        print(f' total no. target features = {tgt_features_sift}')
+        return tgt_features_sift, sift_descriptors
 
 
-#tgt_features_sift = sift_feature_detection(site_images_path, sift_results_path)
+#tgt_features_sift, sift_descriptors = sift_feature_detection(site_images_path, sift_results_path)
+#print(f'SIFT target features are {tgt_features_sift}')
+print(f'The number of SIFT target features are {len(tgt_features_sift)}')
+print(f'The number of SIFT descriptors are {len(sift_descriptors)}')
 
 
+# finding common coordinates...
+hough_set = set(tgt_features_hough)
+sift_set = set(tgt_features_sift)
+common_coords = hough_set.intersection(sift_set)
+print(f'The number of common coordinates is {len(common_coords)}')
+filtered_sift_coords = [(y, x) for y, x in tgt_features_sift if (x, y) in common_coords]
 
-
-# def image_fun_sites(microscope, site_images_path, autofocus_and_image, tgt_features):
-#     image_sites = False
-#     if image_sites:
-#         for site_ids, site_coords in enumerate(tgt_features, start=1): # change this
-#             print(f"capturing site {site_ids} at coords {site_coords}")
-#             current_pos = microscope.position.copy()
-#             tgt_pos = current_pos.copy()
-#             tgt_pos['x'] += site_coords[0]
-#             tgt_pos['y'] += site_coords[1]
-#             microscope.move(tgt_pos)
-#             print(f"now moving microscope to {site_ids}")
-#
-#             # now call image capturing defs
-#             autofocus_and_image(microscope, site_images_path, site_ids)
-#             tgt_features, masked_image = size_masking(color_mask=color_mask, min_droplet_size=0,max_droplet_size=1e15)
-#
-#             print('image displayed')
-#
-#     #return #autofocus_and_image  # may hash this out later
+background_spectra_path = "C:/Users/shann/PycharmProjects/P4 Project/background"
 
 # SPECTRUM GATHERING CODE
 # change features depending on canny/hough/ransac
@@ -436,13 +400,13 @@ def spectra_of_sites(microscope, spectrometer, spectra_path):
     spectra2 = False
     if spectra2:
 
-        features, perimeters = canny_edge_detection(site_images_path, canny_path, min_droplet_size=10, max_droplet_size=1e15)
+        #features, perimeters = canny_edge_detection(site_images_path, canny_path, min_droplet_size=10, max_droplet_size=1e15)
         # UN-COMMENT THESE
         #detected_circles, features = hough_transforms(site_images_path, hough_path, min_dist=1, param1=75,param2=10, min_radius=0, max_radius=20)
         #detected_ransac_circles, features = ransac_circle_detection(site_images_path, ransac_path)
-        #features = sift_feature_detection(site_images_path, sift_results_path)
+        features = filtered_sift_coords #sift_feature_detection(site_images_path, sift_results_path)
 
-        for feature_ids, site_coords in enumerate(features[0:4], start=1):  # takes spectra of only the first 10 sites (time)
+        for feature_ids, site_coords in enumerate(features, start=1):  # takes all spectra for all coords shared in tgt features and hough transforms
 
             current_pos = microscope.position.copy()
             tgt_pos = current_pos.copy()
@@ -463,8 +427,8 @@ def spectra_of_sites(microscope, spectrometer, spectra_path):
 from scipy.signal import find_peaks
 import pandas as pd
 relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/10j"
-# relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ03"
-# relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ06"
+#relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ03"
+#relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ06"
 
 def csv_to_png(csv_inputs, png_outputs):
     csv = False
@@ -483,27 +447,17 @@ def csv_to_png(csv_inputs, png_outputs):
                     peak_wavelengths = wavelengths[peaks]  # xxx.iloc[peaks]???
                     peak_intensities = intensities[peaks]
 
-                    total_intensity = peak_intensities.sum()
-                    relative_abundances = (peak_intensities/total_intensity)*100
-                    relative_abundance_data = pd.DataFrame({
-                        "Wavelength (nm)": peak_wavelengths,
-                        "Intensity": peak_intensities,
-                        "Relative Abundance (%)": relative_abundances})
-                    print(relative_abundance_data)
-
-                    relative_save_location = os.path.join(relative_abundance_path, filename)
-                    relative_abundance_data.to_csv(relative_save_location, index=False)
 
 
                     plt.plot(wavelengths, intensities)
-                    plt.scatter(peak_wavelengths, peak_intensities, color='red', label='Detected Peaks')
+                    plt.scatter(peak_wavelengths, peak_intensities, color='red', marker='x', label='Detected Peaks')
                     plt.title(f'Spectrum of Feature {feature_ids} with Detected Peaks')
                     plt.xlabel(f'Wavelength (nm)')
                     plt.ylabel(f'Intensity')   # potential units (Wm^-2 nm^-1)')
                     for x, y in zip(peak_wavelengths, peak_intensities):
                         plt.text(x, y, f'{x:.1f} nm', fontsize=8, ha='right', va='bottom')
 
-                    plt.savefig(png_filepath, format='png')
+                    #plt.savefig(png_filepath, format='png')
                     plt.show()
                     print(f"spectra displayed of feature {feature_ids}")
                     #plt.close()
@@ -524,15 +478,13 @@ if __name__ == "__main__":
 
 #spectra_of_sites(microscope, spectrometer, spectra_path)
 png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/10j'
-# png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ03'
-# png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ06'
+#png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ03'
+#png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ06'
 csv_to_png(spectra_path, png_output_folder)
 
 
 
-# check if this works 22/11/24. if so, then figure out a way to identify certain features in your spectra over the weekend!
-# issues
-# i need to fix the autofocus
+# check new common coords on 5th dec
 
 
 
