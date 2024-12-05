@@ -9,6 +9,7 @@ from matplotlib.markers import MarkerStyle
 from matplotlib.pyplot import contour
 import seabreeze
 import seabreeze.spectrometers as sb
+from semantic_version import compare
 from skimage.measure import CircleModel, ransac
 
 
@@ -276,11 +277,12 @@ def csv_to_png(csv_inputs, png_outputs):
 
 
 png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/10j'
-png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ03'
-png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ06'
+# png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ03'
+# png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ06'
 csv_to_png(spectra_path,png_output_folder)
 
 # add relative abundance tables for each substance
+
 
 def compare_peaks(wavelengths, spectrum, known_lines, feature_ids): # add site_ids in here
     compare = False
@@ -394,7 +396,7 @@ known_lines = {
     }
 
 
-#def relative_abundances():
+
 
 sites1 = False
 if sites1:
@@ -481,68 +483,59 @@ output_path ='C:/Users/shann/PycharmProjects/P4 Project/scale/10j'
 image_looping(site_images_path, output_path)
 
 
-background_spectra_path = "C:/Users/shann/PycharmProjects/P4 Project/background"
+background_spectra_path = "C:/Users/shann/PycharmProjects/P4 Project/background/background_spectrum4.csv"
+noise_subtracted = "C:/Users/shann/PycharmProjects/P4 Project/noise_subtracted"
 import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
 # fix this later
-def subtract_background_from_folder(site_folder, background_csv, output_folder=None, plot=False):
-    background = False
+def subtract_background_from_folder(site_folder, background_csv, output_folder=noise_subtracted, plot=True):
+    background = True
     if background:
+        background_spectrum = pd.read_csv(background_csv, header=None, names=["Wavelength", "Intensity"],skiprows=1)
+        background_spectrum["Wavelength"] = pd.to_numeric(background_spectrum["Wavelength"], errors="coerce")
+        background_spectrum["Intensity"] = pd.to_numeric(background_spectrum["Intensity"], errors="coerce")
 
-        # Load the background spectrum
-        background_spectrum = pd.read_csv(background_csv, header=None, names=["Wavelength", "Intensity"])
-
-        # Create the output folder if it doesn't exist and saving is enabled
+        background_spectrum = background_spectrum.dropna() # removes any rows with invalid data
         if output_folder and not os.path.exists(output_folder):
             os.makedirs(output_folder)
-
-        # Dictionary to store noise-subtracted spectra
         noise_subtracted_spectra = {}
-
-        # Iterate through all files in the site folder
-        for site_file_name in sorted(os.listdir(site_folder)):
+        for site_file_name in sorted(os.listdir(site_folder)[1:2]):
             site_file_path = os.path.join(site_folder, site_file_name)
-
-            # Check if the file is a CSV
             if not site_file_name.endswith(".csv"):
                 continue
 
-            # Load the site spectrum
-            site_spectrum = pd.read_csv(site_file_path, header=None, names=["Wavelength", "Intensity"])
+            site_spectrum = pd.read_csv(site_file_path, header=None, names=["Wavelength", "Intensity"],skiprows=1)
 
-            # Interpolate the background spectrum to match the site spectrum's wavelengths
+
             interpolated_background = np.interp(
                 site_spectrum["Wavelength"],
                 background_spectrum["Wavelength"],
-                background_spectrum["Intensity"]
-            )
+                background_spectrum["Intensity"])
 
-            # Subtract the background spectrum from the site spectrum
+
             subtracted_intensities = site_spectrum["Intensity"] - interpolated_background
 
-            # Create a DataFrame for the noise-subtracted spectrum
+
             noise_subtracted_spectrum = pd.DataFrame({
                 "Wavelength": site_spectrum["Wavelength"],
-                "Subtracted Intensity": subtracted_intensities
-            })
+                "Subtracted Intensity": subtracted_intensities})
 
-            # Save the noise-subtracted spectrum to a CSV if an output folder is specified
+
             if output_folder:
                 output_csv_path = os.path.join(output_folder, f"noise_subtracted_{site_file_name}")
                 noise_subtracted_spectrum.to_csv(output_csv_path, index=False)
 
-            # Store the spectrum in the dictionary
+
             noise_subtracted_spectra[site_file_name] = noise_subtracted_spectrum
 
-            # Optionally, plot the spectra
+
             if plot:
                 plt.figure(figsize=(10, 6))
-                plt.plot(site_spectrum["Wavelength"], site_spectrum["Intensity"], label="Site Spectrum", color="blue")
-                plt.plot(background_spectrum["Wavelength"], background_spectrum["Intensity"], label="Background Spectrum",
-                         color="orange")
+                #plt.plot(site_spectrum["Wavelength"], site_spectrum["Intensity"], label="Site Spectrum", color="blue")
+                #plt.plot(background_spectrum["Wavelength"], background_spectrum["Intensity"], label="Background Spectrum",color="orange")
                 plt.plot(noise_subtracted_spectrum["Wavelength"], noise_subtracted_spectrum["Subtracted Intensity"],
                          label="Noise-Subtracted Spectrum", color="green")
                 plt.xlabel("Wavelength (nm)")
@@ -554,13 +547,7 @@ def subtract_background_from_folder(site_folder, background_csv, output_folder=N
 
         return noise_subtracted_spectra
 
-# Example usage:
-# spectra = subtract_background_from_folder(
-#     site_folder="site_spectra_folder",
-#     background_csv="background_spectrum.csv",
-#     output_folder="noise_subtracted_spectra",
-#     plot=True
-# )
+site_folder = spectra_path
 
+noise_spectra = subtract_background_from_folder(spectra_path,background_spectra_path,output_path, plot=True)
 
-# noise_subtracted = subtract_background("site_spectrum.csv", background_spectra_path, output_csv="noise_subtracted_spectrum.csv", plot=True)
