@@ -28,6 +28,8 @@ png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/10j2'
 sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/10j2"
 relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/10j2"
 output_path = 'C:/Users/shann/PycharmProjects/P4 Project/scale/10j2'
+noise_subtracted = "C:/Users/shann/PycharmProjects/P4 Project/noise_subtracted/10j"
+spectra_results_path = "C:/Users/shann/PycharmProjects/P4 Project/spectra_results/10j2"
 
 path_BJ03 = False
 if path_BJ03:
@@ -55,7 +57,7 @@ if path_BJ06:
 #background_spectra_path = "C:/Users/shann/PycharmProjects/P4 Project/background"
 background_png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/background'
 background_spectra_path = "C:/Users/shann/PycharmProjects/P4 Project/background/background_spectrum4.csv"
-noise_subtracted = "C:/Users/shann/PycharmProjects/P4 Project/noise_subtracted"
+
 
 
 def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=10000, param2=10000000, min_radius = 100, max_radius=1000):
@@ -67,7 +69,7 @@ def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=1000
         if not os.path.exists(hough_path):
             os.makedirs(hough_path)
         detected_circles = {}
-        for site_ids, image in enumerate(os.listdir(site_images_path)[0:3], start=1):
+        for site_ids, image in enumerate(os.listdir(site_images_path)[0:1], start=1):
             if image.endswith(('.png', '.jpg')):
                 image_path = os.path.join(site_images_path, image)
                 color_image = cv2.imread(image_path, cv2.IMREAD_COLOR)
@@ -112,7 +114,7 @@ def sift_feature_detection(site_images_path, sift_results_path):
         edgeThreshold=5  ,      # lower vals to detect edge like features
         sigma=0.5)              # gaussian blur. lower vals = finer features detected
 
-        for i, image_name in enumerate(os.listdir(site_images_path)[0:3], start=1):
+        for i, image_name in enumerate(os.listdir(site_images_path)[0:1], start=1):
             if image_name.endswith(('.png', '.jpg')):
                 image_path = os.path.join(site_images_path, image_name)
                 image = cv2.imread(image_path, cv2.IMREAD_COLOR)
@@ -171,7 +173,7 @@ def find_common_coords_kd_tree(set1, set2, tolerance=0.1):
 def process_site_images(site_images_path, hough_path, sift_results_path, tolerance=0.1):
     results = {}
 
-    for i, image_file in enumerate(os.listdir(site_images_path)[0:3], start=1):
+    for i, image_file in enumerate(os.listdir(site_images_path)[0:1], start=1):
         image_path = os.path.join(site_images_path, image_file)
         if os.path.isfile(image_path) and image_file.lower().endswith(('.png', '.jpg')):
             print(f"processing image no. {i}")
@@ -262,10 +264,33 @@ def csv_to_png(csv_inputs, png_outputs):
         #return wavelengths, intensities
 csv_to_png(spectra_path, png_output_folder)
 
-def compare_peaks(wavelengths, spectrum, known_lines, feature_ids): # add site_ids in here
-    compare = True
+
+def load_spectra(spectrum_file):
+    try:
+        if not os.path.isfile(spectrum_file):
+            raise FileNotFoundError(f"The file does not exist: {spectrum_file}")
+        df = pd.read_csv(spectrum_file, skiprows=1, names=["wavelength", "intensity"])
+        df = df.astype({"wavelength": float, "intensity": float})
+        wavelengths = df['wavelength'].values
+        spectrum = df['intensity'].values
+        return wavelengths, spectrum
+    except Exception as e:
+        raise RuntimeError(f"Error loading spectrum data: {e}")
+
+def handle_multiple_files(folder):
+    spectra = []
+    for file in os.listdir(folder)[0:3]:
+        if file.endswith(".csv"):
+            file_path = os.path.join(folder, file)
+            wavelengths, spectrum = load_spectra(file_path)
+            spectra.append((file, wavelengths, spectrum))
+    return spectra
+
+
+def compare_peaks(wavelengths, spectrum, known_lines, spectra_results_path, feature_ids): # add site_ids in here
+    compare = False
     if compare:
-        print(f'function called for feature {feature_ids}')
+        #print(f'function called for feature {feature_ids}')
         peaks, _ = find_peaks(spectrum, prominence=50, threshold=1, height=(2000,250000))
         detected_wavelengths = wavelengths[peaks]
         peak_intensities = spectrum[peaks]
@@ -294,7 +319,7 @@ def compare_peaks(wavelengths, spectrum, known_lines, feature_ids): # add site_i
                 if any(abs(detected_wavelengths - line)/line < 0.005):
                     matches = np.where(np.abs(detected_wavelengths - line)/line < 0.005)[0]
                     for match in matches:
-                        matched_wavelength = detected_wavelengths[match]
+                        matched_wavelength = detected_wavelengths.iloc[match] if isinstance(detected_wavelengths, pd.Series) else detected_wavelengths[match]
                         intensity = spectrum[np.where(wavelengths == matched_wavelength)[0][0]]
 
                         if substance not in identified_substances:
@@ -317,7 +342,7 @@ def compare_peaks(wavelengths, spectrum, known_lines, feature_ids): # add site_i
         plt.ylabel("Intensity")
         plt.title(f"Spectrum with Detected Peaks for Feature {feature_ids}") # add site_ids here
         plt.legend()
-        #plt.savefig(os.path.join(spectra_results_path, f"spectrum_analysis_site_{feature_ids}" ))
+        #plt.savefig(os.path.join(spectra_results_path, f"spectrum_analysis_site_{feature_ids}"))
         #plt.grid(alpha=0.5)
         plt.show()
 
@@ -374,36 +399,14 @@ known_lines = {
     'Rhodamine 6G A':[530],
     'Rhodamine 6G E': [552]}
 
-
-def load_spectra(spectrum_file):
-    try:
-        if not os.path.isfile(spectrum_file):
-            raise FileNotFoundError(f"The file does not exist: {spectrum_file}")
-        df = pd.read_csv(spectrum_file, skiprows=1, names=["wavelength", "intensity"])
-        df = df.astype({"wavelength": float, "intensity": float})
-        wavelengths = df['wavelength'].values
-        spectrum = df['intensity'].values
-        return wavelengths, spectrum
-    except Exception as e:
-        raise RuntimeError(f"Error loading spectrum data: {e}")
-
-def handle_multiple_files(folder):
-    spectra = []
-    for file in os.listdir(folder[0:3]):
-        if file.endswith(".csv"):
-            file_path = os.path.join(folder, file)
-            wavelengths, spectrum = load_spectra(file_path)
-            spectra.append((file, wavelengths, spectrum))
-    return spectra
-
-sites1 = True
+sites1 = False
 if sites1:
     site_counter = 1
     for file, wavelengths, spectrum in handle_multiple_files(spectra_path):
         print(f' processing file {file}')
-        compare_peaks(wavelengths, spectrum, known_lines, feature_ids=site_counter)
-        site_counter +=1
 
+        compare_peaks(wavelengths, spectrum, known_lines,spectra_results_path, feature_ids=site_counter)
+        site_counter +=1
 
 
 # edit this later!!
@@ -482,7 +485,7 @@ scale_bar(site_images_path, output_path)
 
 # fix this later
 def background_subtracted(site_folder, background_csv, output_folder=noise_subtracted, plot=True):
-    background = False
+    background = True
     if background:
         background_spectrum = pd.read_csv(background_csv, header=None, names=["Wavelength", "Intensity"],skiprows=1)
         background_spectrum["Wavelength"] = pd.to_numeric(background_spectrum["Wavelength"], errors="coerce")
@@ -492,7 +495,7 @@ def background_subtracted(site_folder, background_csv, output_folder=noise_subtr
         if output_folder and not os.path.exists(output_folder):
             os.makedirs(output_folder)
         noise_subtracted_spectra = {}
-        for site_file_name in sorted(os.listdir(site_folder)[1:2]):
+        for feature_ids, site_file_name in enumerate(os.listdir(site_folder)[0:3], start=1):
             site_file_path = os.path.join(site_folder, site_file_name)
             if not site_file_name.endswith(".csv"):
                 continue
@@ -530,13 +533,111 @@ def background_subtracted(site_folder, background_csv, output_folder=noise_subtr
                          label="Noise-Subtracted Spectrum", color="green")
                 plt.xlabel("Wavelength (nm)")
                 plt.ylabel("Intensity")
-                plt.title(f"Noise-Subtracted Spectrum for {site_file_name}")
+                plt.title(f"Noise-Subtracted Spectrum for {feature_ids}")
                 plt.legend()
                 plt.grid(alpha=0.5)
+                output_file_spectrum = os.path.join(output_path, f'Background_subtracted_spectra_feature_{feature_ids}.png')
+                plt.savefig(output_file_spectrum, bbox_inches='tight', pad_inches=0)
                 plt.show()
+
+
 
         return noise_subtracted_spectra
 
-site_folder = spectra_path
-noise_spectra = background_subtracted(spectra_path,background_spectra_path,output_path, plot=True)
+#site_folder = spectra_path
+noise_subtracted_spectra = background_subtracted(spectra_path, background_spectra_path, noise_subtracted,plot=True)
 
+
+
+noise_subtracted_path = "C:/Users/shann/PycharmProjects/P4 Project/noise_subtracted_path"
+
+
+#
+def peaks_of_subtracted_spectra(noise_subtracted, noise_subtracted_path):
+    for feature_ids, file in enumerate(os.listdir(noise_subtracted)[0:3], start=1):
+        print(f'function called for feature {feature_ids}')
+        file_path = os.path.join(noise_subtracted, file)
+        # define output filepath here
+        subtracted_numpy_data = np.loadtxt(file_path, delimiter=',', skiprows=1)
+        #df = pd.read_csv(file_path)
+        wavelengths = subtracted_numpy_data[:,0]
+        subtracted_intensity = subtracted_numpy_data[:,1]
+
+        peaks, _ = find_peaks(subtracted_intensity, prominence=80, threshold=1, height=(0, 250000))
+        detected_wavelengths = wavelengths[peaks]
+        peak_intensities = subtracted_intensity[peaks]
+        total_intensity = peak_intensities.sum()
+        relative_abundances = (peak_intensities / total_intensity) * 100
+
+        #relative_save_location = os.path.join(relative_abundance_path, relative_abundances)
+        #relative_abundances.to_csv(relative_save_location, index=False)
+
+        plt.figure(figsize=(12, 6))
+        plt.plot(wavelengths, subtracted_intensity, label="Noise Subtracted Spectrum", color='blue', linewidth=1.5)
+        plt.scatter(detected_wavelengths, peak_intensities, color='red', marker='x', label='Detected Peaks')
+
+        # normalise color map to ensure it falls over entire range of available colors
+        norm = Normalize(vmin=0, vmax=len(known_lines))
+        color_map = plt.colormaps.get_cmap(
+            'Set1')  # get_cmap('tab10')  # change to matplotlib.colormaps.get_cmap('tab10')
+
+        # substance_colors = {substance: color_map(i) for i, substance in enumerate(known_lines.keys())}
+        identified_substances = {}
+        labels = set()
+
+        for substance, lines in known_lines.items():
+            for line in lines:
+                if any(abs(detected_wavelengths - line) / line < 0.005):
+                    matches = np.where(np.abs(detected_wavelengths - line) / line < 0.005)[0]
+                    for match in matches:
+                        matched_wavelength = detected_wavelengths.iloc[match] if isinstance(detected_wavelengths,pd.Series) else detected_wavelengths[match]
+                        intensity = subtracted_intensity[np.where(wavelengths == matched_wavelength)[0][0]]
+
+                        if substance not in identified_substances:
+                            identified_substances[substance] = {
+                                "wavelengths": [matched_wavelength],
+                                "intensities": [intensity],
+                                "relative_abundances": [relative_abundances[match]]}
+
+                        else:
+                            identified_substances[substance]["wavelengths"].append(matched_wavelength)
+                            identified_substances[substance]["intensities"].append(intensity)
+                            identified_substances[substance]["relative_abundances"].append(relative_abundances[match])
+
+                        if substance not in labels:
+                            substance_color = color_map(len(identified_substances)) # / len(known_lines))
+                            plt.axvline(x=line, linestyle="--", color=substance_color, linewidth=1, label=f"{substance}")
+                            labels.add(substance)
+
+        plt.xlabel("Wavelength (nm)")
+        plt.ylabel("Intensity")
+        plt.title(f"Noise Subtracted Spectrum with Detected Peaks for Feature {feature_ids}") # add site_ids here
+        plt.legend()
+        plt.savefig(os.path.join(noise_subtracted_path, f"noise_subtracted_spectrum_analysis_site_{feature_ids}"))
+        #plt.grid(alpha=0.5)
+        plt.show()
+
+        all_data = []
+
+        for substance, data in identified_substances.items():
+            #print(f" substance is {substance} intensity is {intensity}")
+            relative_abundance_data = pd.DataFrame({
+                "Substance": [substance] * len(data["wavelengths"]),
+                "Wavelength (nm)": data['wavelengths'],#peak_wavelengths,
+                "Intensity": data['intensities'], #peak_intensities,
+                "Relative Abundance (%)": data['relative_abundances']}) #relative_abundances})
+            #print(relative_abundance_data)
+            all_data.append(relative_abundance_data)
+
+        final_substance_dataframe = pd.DataFrame({
+            "Substance": np.concatenate([data["Substance"] for data in all_data]),
+            "Wavelength (nm)": np.concatenate([data["Wavelength (nm)"] for data in all_data]),
+            "Intensity": np.concatenate([data["Intensity"] for data in all_data]),
+            "Relative Abundance (%)": np.concatenate([data["Relative Abundance (%)"] for data in all_data])
+        })
+        print(final_substance_dataframe)
+
+        #compare_peaks(wavelengths, subtracted_intensity, known_lines, noise_subtracted_path, feature_ids)
+        print(f' processing file {file}')
+
+peaks_of_subtracted_spectra(noise_subtracted, noise_subtracted_path)
