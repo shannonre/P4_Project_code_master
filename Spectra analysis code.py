@@ -11,26 +11,54 @@ import seabreeze
 import seabreeze.spectrometers as sb
 from semantic_version import compare
 from skimage.measure import CircleModel, ransac
-
-
-
-site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/10j' # images for sample 10j
-#site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ03'  # images for sample BJ03
-#site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ06'  # images for sample BJ06
-
 import cv2
-import numpy as np
+from scipy.signal import find_peaks
+from matplotlib.colors import Normalize
+from PIL import Image, ImageDraw, ImageFont
+import matplotlib.patches as patches
+import pandas as pd
 
-#plt.imshow(cv2.imread(site_images_path))
-#plt.show()
+# path_10j = True
+# if path_10j:
+site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/10j2'
+spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/10j2'
+canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/10j2'
+hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/10j2'
+png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/10j2'
+sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/10j2"
+relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/10j2"
+output_path = 'C:/Users/shann/PycharmProjects/P4 Project/scale/10j2'
 
-import cv2
-import numpy as np
-import matplotlib.pyplot as plt
+path_BJ03 = False
+if path_BJ03:
+    site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ032'
+    spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/BJ032'
+    canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/BJ032'
+    hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/BJ02'
+    png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ032'
+    sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/BJ032"
+    relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ032"
+    output_path ='C:/Users/shann/PycharmProjects/P4 Project/scale/BJ03'
+
+path_BJ06 = False
+if path_BJ06:
+    site_images_path = ('C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ062')
+    spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/BJ062'
+    canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/BJ062'
+    hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/BJ02'
+    png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ062'
+    sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/BJ062"
+    relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ062"
+    output_path = 'C:/Users/shann/PycharmProjects/P4 Project/scale/BJ06'
 
 
-hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/10j'
-def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=10000, param2=10000000, min_radius = 120, max_radius=1000):
+#background_spectra_path = "C:/Users/shann/PycharmProjects/P4 Project/background"
+background_png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/background'
+background_spectra_path = "C:/Users/shann/PycharmProjects/P4 Project/background/background_spectrum4.csv"
+noise_subtracted = "C:/Users/shann/PycharmProjects/P4 Project/noise_subtracted"
+
+
+def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=10000, param2=10000000, min_radius = 100, max_radius=1000):
     # param 1 defines how many edges are detected using the Canny edge detector (higher vals = fewer edges)
     # param 2 defines how many votes a circle must receive in order for it to be considered a valid circle (higher vals = a higher no. votes needed)
     hough = True
@@ -39,7 +67,7 @@ def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=1000
         if not os.path.exists(hough_path):
             os.makedirs(hough_path)
         detected_circles = {}
-        for site_ids, image in enumerate(os.listdir(site_images_path)[0:1], start=1):
+        for site_ids, image in enumerate(os.listdir(site_images_path)[0:3], start=1):
             if image.endswith(('.png', '.jpg')):
                 image_path = os.path.join(site_images_path, image)
                 color_image = cv2.imread(image_path, cv2.IMREAD_COLOR)
@@ -55,37 +83,21 @@ def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=1000
                         # draws the circles on the colour image
                         cv2.circle(color_image, (x, y), r, (255, 0, 0), 1)
                         tgt_features_hough.append((y, x))
-                #cv2.imshow(f'Detected Circles Using Hough Transforms for Site {site_ids}', color_image)
-                # else:
-                #     print(f"No circles detected for site {site_ids}.")
-                #     detected_circles[site_ids] = []
+                print(f' The number of Hough target features are {len(tgt_features_hough)}')
 
-
-                #output_file = os.path.join(hough_path, f'{site_ids}.png')
-                #cv2.imwrite(output_file, color_image)
-                print(f'hough transform image {site_ids} saved to {hough_path}')
 
                 plt.figure(figsize=(8, 8))
                 plt.imshow(color_image)
                 plt.legend()
                 plt.title(f"Detected Features via Hough Transforms for Site {site_ids}")
                 plt.axis("off")  # Hide axes for better visualization
-                #plt.savefig(os.path.join(hough_path,f'hough circles{site_ids}.png'))
-                plt.show()
-        return detected_circles, tgt_features_hough
+                #plt.savefig(os.path.join(hough_path, f'hough circles{site_ids}.png'))
+                #plt.show()
+        return tgt_features_hough
 
-detected_circles, tgt_features_hough = hough_transforms(site_images_path, hough_path, min_dist=1, param1=75, param2=10, min_radius=0, max_radius=20)
-print("Detected circles:", detected_circles)
-#print(f' Hough target features are... {tgt_features_hough}')
-print(f' The number of Hough target features are {len(tgt_features_hough)}')
+tgt_features_hough = hough_transforms(site_images_path, hough_path, min_dist=1, param1=75, param2=10, min_radius=0, max_radius=20)
 
 
-from skimage.measure import ransac, CircleModel
-import numpy as np
-import matplotlib.pyplot as plt
-import cv2
-
-sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/10j"
 
 def sift_feature_detection(site_images_path, sift_results_path):
     sift = True
@@ -100,7 +112,7 @@ def sift_feature_detection(site_images_path, sift_results_path):
         edgeThreshold=5  ,      # lower vals to detect edge like features
         sigma=0.5)              # gaussian blur. lower vals = finer features detected
 
-        for i, image_name in enumerate(os.listdir(site_images_path)[0:1], start=1):
+        for i, image_name in enumerate(os.listdir(site_images_path)[0:3], start=1):
             if image_name.endswith(('.png', '.jpg')):
                 image_path = os.path.join(site_images_path, image_name)
                 image = cv2.imread(image_path, cv2.IMREAD_COLOR)
@@ -118,6 +130,7 @@ def sift_feature_detection(site_images_path, sift_results_path):
                     #print(f'working on feature {feature_count}')
 
                 #print(f"No. target features found in site {i}: {feature_count}")
+                print(f'The number of SIFT target features are {len(tgt_features_sift)}')
 
                 keypoint_image = cv2.drawKeypoints(image, keypoints, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
                 keypoint_image_rgb = cv2.cvtColor(keypoint_image, cv2.COLOR_BGR2RGB)
@@ -127,29 +140,48 @@ def sift_feature_detection(site_images_path, sift_results_path):
                 plt.title(f"SIFT Features for Site {i}")
                 plt.axis("off")
                 #plt.savefig(os.path.join(sift_results_path, f"sift_features_image_{i}.png"))
-                plt.show()
+                #plt.show()
 
                 descriptors_path = os.path.join(sift_results_path, f"descriptors_image_{i}.npy")
                 #np.save(descriptors_path, descriptors)
         #print(f' total no. target features = {tgt_features}')
-        return tgt_features_sift , sift_descriptors
+        return tgt_features_sift
 
 
-tgt_features_sift, sift_descriptors = sift_feature_detection(site_images_path, sift_results_path)
-#print(f'SIFT target features are {tgt_features_sift}')
-print(f'The number of SIFT target features are {len(tgt_features_sift)}')
-print(f'The number of SIFT descriptors are {len(sift_descriptors)}')
-
-
-# finding common coordinates...
-hough_set = set(tgt_features_hough)
-sift_set = set(tgt_features_sift)
-common_coords = hough_set.intersection(sift_set)
-print(f'The number of common coordinates is {len(common_coords)}')
-filtered_sift_coords = [(y, x) for y, x in tgt_features_sift if (x, y) in common_coords]  # to use when gathering spectra
+tgt_features_sift = sift_feature_detection(site_images_path, sift_results_path)
 
 
 
+
+from scipy.spatial import KDTree
+
+def find_common_coords_kd_tree(set1, set2, tolerance=0.1):
+    tree = KDTree(set2)
+    common_coords = []
+    for coord1 in set1:
+        idxs = tree.query_ball_point(coord1, tolerance)
+        common_coords.extend([set2[idx] for idx in idxs])
+    return common_coords
+
+# hough_set = tgt_features_hough
+# sift_set = tgt_features_sift
+# common_coords = find_common_coords_kd_tree(hough_set, sift_set, tolerance=0.1)
+
+
+def process_site_images(site_images_path, hough_path, sift_results_path, tolerance=0.1):
+    results = {}
+
+    for i, image_file in enumerate(os.listdir(site_images_path)[0:3], start=1):
+        image_path = os.path.join(site_images_path, image_file)
+        if os.path.isfile(image_path) and image_file.lower().endswith(('.png', '.jpg')):
+            print(f"processing image no. {i}")
+            # hough_features = hough_transforms(site_images_path, hough_path)
+            # sift_features = sift_feature_detection(site_images_path, sift_results_path)
+            common_coords = find_common_coords_kd_tree(tgt_features_hough, tgt_features_sift, tolerance)
+            results["common coords"] = common_coords
+            print(f'The number of common coordinates is {len(common_coords)}')
+
+process_site_images(site_images_path, hough_path, sift_results_path, tolerance=0.1)
 
 
 # filtered_sift_coords = [(y, x) for y, x in tgt_features_sift if (x, y) in common_coords]
@@ -191,59 +223,12 @@ filtered_sift_coords = [(y, x) for y, x in tgt_features_sift if (x, y) in common
 #         plt.show()
 
 
-
-# SPECTRA ANALYSIS CODE.
-
-spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/10j'
-#spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/BJ03'
-#spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/BJ06'
-
-
-import pandas as pd
-import numpy as np
-from scipy.signal import find_peaks
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-from matplotlib.cm import get_cmap
-
-
-def load_spectra(spectrum_path):
-    try:
-        df = pd.read_csv(spectrum_path, skiprows=1, names=["Wavelength", "Intensity"])
-        df = df.astype({"Wavelength": float, "Intensity": float})
-        wavelengths = df['Wavelength'].values
-        spectrum = df['Intensity'].values
-        return wavelengths, spectrum
-    except Exception as e:
-        raise RuntimeError(f"error loading spectrum data: {e}")
-
-#wavelengths, spectrum = load_spectra(spectrum_path)
-
-def handle_multiple_files(folder):
-    spectra = []
-    for file in os.listdir(folder):
-        if file.endswith(".csv"):
-            file_path = os.path.join(folder, file)
-            wavelengths, spectrum = load_spectra(file_path)
-            spectra.append((file, wavelengths, spectrum))
-    return spectra
-
-spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_results/10j'
-#spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_results/BJ03'
-#spectra_results_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_results/BJ06'
-
-
-relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/10j"
-# #relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ03"
-#relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ06"
-from matplotlib.colors import Normalize
-
 def csv_to_png(csv_inputs, png_outputs):
-    csv = False
+    csv = True
     if csv:
         #if not os.path.exists(png_outputs):
         os.makedirs(png_outputs, exist_ok=True)
-        for feature_ids, filename in enumerate(os.listdir(csv_inputs)[0:2], start=1):
+        for feature_ids, filename in enumerate(os.listdir(csv_inputs)[0:3], start=1):
             if filename.endswith('.csv'):
                 try:
                     csv_filepath =  os.path.join(csv_inputs, filename)
@@ -252,7 +237,7 @@ def csv_to_png(csv_inputs, png_outputs):
                     wavelengths = numpy_data[:,0]
                     intensities = numpy_data[:,1]
                     #peaks, _ = find_peaks(spectrum, prominence=50, threshold=1, height=(2000, 250000))
-                    peaks, properties = find_peaks(intensities, height=10000)
+                    peaks, properties = find_peaks(intensities, prominence=50, threshold=1, height=(2000, 250000))
                     peak_wavelengths = wavelengths[peaks]  # xxx.iloc[peaks]???
                     peak_intensities = intensities[peaks]
 
@@ -268,25 +253,19 @@ def csv_to_png(csv_inputs, png_outputs):
 
                     #plt.savefig(png_filepath, format='png')
                     plt.legend()
-                    #plt.show()
-
+                    plt.show()
                     print(f"spectra displayed of feature {feature_ids}")
                     #plt.close()
                 except Exception as e:
                     print(f'error is {e}')
 
-
-png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/10j'
-# png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ03'
-# png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ06'
-csv_to_png(spectra_path,png_output_folder)
-
-# add relative abundance tables for each substance
-
+        #return wavelengths, intensities
+csv_to_png(spectra_path, png_output_folder)
 
 def compare_peaks(wavelengths, spectrum, known_lines, feature_ids): # add site_ids in here
-    compare = False
+    compare = True
     if compare:
+        print(f'function called for feature {feature_ids}')
         peaks, _ = find_peaks(spectrum, prominence=50, threshold=1, height=(2000,250000))
         detected_wavelengths = wavelengths[peaks]
         peak_intensities = spectrum[peaks]
@@ -362,7 +341,8 @@ def compare_peaks(wavelengths, spectrum, known_lines, feature_ids): # add site_i
         })
         print(final_substance_dataframe)
 
-        return #identified_substances
+        #return identified_substances
+#compare_peaks(wavelengths, spectrum, known_lines, feature_ids)
 
 known_lines = {
     'H-\u03B1 ': [656.28], # H-alpha, n = 3 to n = 2
@@ -392,13 +372,31 @@ known_lines = {
     'Texas Red A':[595],
     'Texas Red E': [615],
     'Rhodamine 6G A':[530],
-    'Rhodamine 6G E': [552],
-    }
+    'Rhodamine 6G E': [552]}
 
 
+def load_spectra(spectrum_file):
+    try:
+        if not os.path.isfile(spectrum_file):
+            raise FileNotFoundError(f"The file does not exist: {spectrum_file}")
+        df = pd.read_csv(spectrum_file, skiprows=1, names=["wavelength", "intensity"])
+        df = df.astype({"wavelength": float, "intensity": float})
+        wavelengths = df['wavelength'].values
+        spectrum = df['intensity'].values
+        return wavelengths, spectrum
+    except Exception as e:
+        raise RuntimeError(f"Error loading spectrum data: {e}")
 
+def handle_multiple_files(folder):
+    spectra = []
+    for file in os.listdir(folder[0:3]):
+        if file.endswith(".csv"):
+            file_path = os.path.join(folder, file)
+            wavelengths, spectrum = load_spectra(file_path)
+            spectra.append((file, wavelengths, spectrum))
+    return spectra
 
-sites1 = False
+sites1 = True
 if sites1:
     site_counter = 1
     for file, wavelengths, spectrum in handle_multiple_files(spectra_path):
@@ -406,11 +404,10 @@ if sites1:
         compare_peaks(wavelengths, spectrum, known_lines, feature_ids=site_counter)
         site_counter +=1
 
-from PIL import Image, ImageDraw, ImageFont
-import matplotlib.patches as patches
+
 
 # edit this later!!
-def image_looping(site_images_path, output_path):
+def scale_bar(site_images_path, output_path):
     loop = False
     if loop:
         if not os.path.exists(output_path):
@@ -471,28 +468,21 @@ def image_looping(site_images_path, output_path):
             plt.axis('off')
 
             output_file = os.path.join(output_path, f'Image_of_site_{site_ids}_with_scale.png')
-            plt.savefig(output_file, bbox_inches='tight', pad_inches=0)
+            #plt.savefig(output_file, bbox_inches='tight', pad_inches=0)
             #plt.close()
             #plt.show()
 
             #print(f"Saved processed image to {output_file}")
 
-output_path ='C:/Users/shann/PycharmProjects/P4 Project/scale/10j'
-#output_path ='C:/Users/shann/PycharmProjects/P4 Project/scale/BJ03'
-#output_path ='C:/Users/shann/PycharmProjects/P4 Project/scale/BJ06'
-image_looping(site_images_path, output_path)
+
+scale_bar(site_images_path, output_path)
 
 
-background_spectra_path = "C:/Users/shann/PycharmProjects/P4 Project/background/background_spectrum4.csv"
-noise_subtracted = "C:/Users/shann/PycharmProjects/P4 Project/noise_subtracted"
-import os
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
+
 
 # fix this later
-def subtract_background_from_folder(site_folder, background_csv, output_folder=noise_subtracted, plot=True):
-    background = True
+def background_subtracted(site_folder, background_csv, output_folder=noise_subtracted, plot=True):
+    background = False
     if background:
         background_spectrum = pd.read_csv(background_csv, header=None, names=["Wavelength", "Intensity"],skiprows=1)
         background_spectrum["Wavelength"] = pd.to_numeric(background_spectrum["Wavelength"], errors="coerce")
@@ -548,6 +538,5 @@ def subtract_background_from_folder(site_folder, background_csv, output_folder=n
         return noise_subtracted_spectra
 
 site_folder = spectra_path
-
-noise_spectra = subtract_background_from_folder(spectra_path,background_spectra_path,output_path, plot=True)
+noise_spectra = background_subtracted(spectra_path,background_spectra_path,output_path, plot=True)
 

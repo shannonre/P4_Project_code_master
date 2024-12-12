@@ -10,32 +10,52 @@ import numpy as np
 from matplotlib.pyplot import contour
 import seabreeze
 import seabreeze.spectrometers as sb
+from scipy.signal import find_peaks
 
-# folder where images of sites and spectra are saved
-#site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/10j2' # images for sample 10j
-#site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ032'  # images for sample BJ03
-site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ062'  # images for sample BJ06
+# folders where images of sites and spectra are saved
+
+path_10j = False
+if path_10j:
+    site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/10j2'
+    spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/10j2'
+    canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/10j2'
+    hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/10j2'
+    png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/10j2'
+    sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/10j2"
+
+path_BJ03 = False
+if path_BJ03:
+    site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ032'
+    spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/BJ032'
+    canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/BJ032'
+    hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/BJ02'
+    png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ032'
+    sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/BJ032"
+
+path_BJ06 = False
+if path_BJ06:
+    site_images_path = ('C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ062')
+    spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/BJ062'
+    canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/BJ062'
+    hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/BJ02'
+    png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ062'
+    sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/BJ062"
+
+background_spectra_path = "C:/Users/shann/PycharmProjects/P4 Project/background"
+background_png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/background'
+#site_images_2 = 'C:/Users/shann/PycharmProjects/P4 Project/site_images_axes'
+#os.makedirs(site_images_2, exist_ok=True)
+
 os.makedirs(site_images_path, exist_ok=True)
-site_images_2 = 'C:/Users/shann/PycharmProjects/P4 Project/site_images_axes'
-os.makedirs(site_images_2, exist_ok=True)
-#actual_site_images_path # where all of the actual site images go
-#os.makedirs(site_images_path, exist_ok=True)
-#spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/10j2'
-#spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/BJ032'
-spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/BJ062'
 os.makedirs(spectra_path, exist_ok=True)
 
 
 # MICROSCOPE IDENTIFIERS
 microscope = ofm_client.find_first_microscope()
-
-
-
 rows = 1
 cols = 4
 step_size = 832
 
-#Goes through 3 rows and 3 cols for a total of 9 images with a step size of x or y = 1000 per row. Also performs autofocus at each point.
 
 
 # POSITION CHECK
@@ -174,12 +194,9 @@ def image_looping(site_images_path): # do i need this?? - turn on when you want 
 
 image_loop = image_looping(site_images_path)
 
+
+
 # FEATURE IDENTIFICATION
-
-#canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/10j2'
-#canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/BJ032'
-canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/BJ062'
-
 def canny_edge_detection(site_images_path, canny_path, min_droplet_size=1, max_droplet_size=10000):
     canny1 = True
     all_tgt_features = []
@@ -244,10 +261,7 @@ def canny_edge_detection(site_images_path, canny_path, min_droplet_size=1, max_d
 
 features, perimeters = canny_edge_detection(site_images_path, canny_path, min_droplet_size=10, max_droplet_size=1e15)
 
-# HOUGH
-#hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/10j2'
-#hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/BJ02'
-hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/BJ02'
+
 def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=10000, param2=10000000, min_radius = 120, max_radius=1000):
     # param 1 defines how many edges are detected using the Canny edge detector (higher vals = fewer edges)
     # param 2 defines how many votes a circle must receive in order for it to be considered a valid circle (higher vals = a higher no. votes needed)
@@ -295,15 +309,11 @@ def hough_transforms(site_images_path, hough_path, dp=1, min_dist=5, param1=1000
 
 detected_circles, tgt_features_hough = hough_transforms(site_images_path, hough_path, min_dist=1, param1=75, param2=10, min_radius=0, max_radius=20)
 #print("Detected circles:", detected_circles)
-#print("Detected circles:", detected_circles)
-#print(f' Hough target features are... {tgt_features_hough}')
 print(f' The number of Hough target features are {len(tgt_features_hough)}')
 
 
 
-#sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/10j2"
-#sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/BJ032"
-sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/BJ062"
+
 def sift_feature_detection(site_images_path, sift_results_path):
     sift = True
     if sift:
@@ -315,8 +325,8 @@ def sift_feature_detection(site_images_path, sift_results_path):
         sift = cv2.SIFT_create(nfeatures=20000,         # max no. features detected
         contrastThreshold=0.03,  # lower vals = detect features with less contrast
         edgeThreshold=5,        # lower vals to detect edge like features
-        sigma=0.5               # gaussian blur. lower vals = finer features detected
-    )
+        sigma=0.5 )              # gaussian blur. lower vals = finer features detected
+
 
         for i, image_name in enumerate(os.listdir(site_images_path), start=1):
             if image_name.endswith(('.png', '.jpg')):
@@ -350,12 +360,11 @@ def sift_feature_detection(site_images_path, sift_results_path):
 
                 descriptors_path = os.path.join(sift_results_path, f"descriptors_site_{i}.npy")
                 np.save(descriptors_path, descriptors)
-        #print(f' total no. target features = {tgt_features_sift}')
+
         return tgt_features_sift, sift_descriptors
 
 
 tgt_features_sift, sift_descriptors = sift_feature_detection(site_images_path, sift_results_path)
-#print(f'SIFT target features are {tgt_features_sift}')
 print(f'The number of SIFT target features are {len(tgt_features_sift)}')
 print(f'The number of SIFT descriptors are {len(sift_descriptors)}')
 
@@ -369,7 +378,7 @@ print(f'The number of common coordinates is {len(common_coords)}')
 #filtered_coords = [(y, x) for y, x in tgt_features_sift if (y, x) in common_coords]
 #print(f'the number of filtered coords is {len(filtered_coords)}')
 
-background_spectra_path = "C:/Users/shann/PycharmProjects/P4 Project/background"
+
 def gather_background_spectrum(spectrometer,background_spectra_path):
     background = True
     if background:
@@ -381,11 +390,6 @@ def gather_background_spectrum(spectrometer,background_spectra_path):
         np.savetxt(background_save_location, np.column_stack((wavelengths,intensities)), delimiter=',', header='wavelength,intensity')
         print(f'background spectrum saved to {background_save_location}')
 
-
-
-# SPECTRUM GATHERING CODE
-# change features depending on canny/hough/ransac
-# iterate through a number of features.....
 
 def gather_spectra(spectrometer, spectra_path, common_coords):
     spectra = True
@@ -417,12 +421,11 @@ def connect_to_spectrometer():
 
 
 
-def spectra_of_sites(microscope, spectrometer, spectra_path):
+def spectra_of_sites(microscope, spectrometer, spectra_path, common_coords):
     spectra2 = True
     if spectra2:
 
         #features, perimeters = canny_edge_detection(site_images_path, canny_path, min_droplet_size=10, max_droplet_size=1e15)
-        # UN-COMMENT THESE
         #detected_circles, features = hough_transforms(site_images_path, hough_path, min_dist=1, param1=75,param2=10, min_radius=0, max_radius=20)
         #detected_ransac_circles, features = ransac_circle_detection(site_images_path, ransac_path)
         #features = common_coords_list #sift_feature_detection(site_images_path, sift_results_path)
@@ -441,10 +444,9 @@ def spectra_of_sites(microscope, spectrometer, spectra_path):
             #print(f'spectra saved of feature {feature_ids}')
 
 #spectra_of_sites(microscope, spectrometer, spectra_path)
-
 #spectrometer.close()
 
-from scipy.signal import find_peaks
+
 
 
 def csv_to_png(csv_inputs, png_outputs):
@@ -484,22 +486,18 @@ def csv_to_png(csv_inputs, png_outputs):
                     print(f'error is {e}')
 
 
-if __name__ == "__main__":
-    position()
-    autofocus_and_image(microscope, site_images_path, rows, cols, step_size) #, site_ids)
-    image_looping(site_images_path)
-    #masks = color_masking(site_images_path)
-    #features = size_masking(masks[0])
-    spectrometer = connect_to_spectrometer()
-    if spectrometer:
-        print(f'connected to spectrometer')
-        gather_spectra(spectrometer, spectra_path, common_coords)
+    if __name__ == "__main__":
+        position()
+        autofocus_and_image(microscope, site_images_path, rows, cols, step_size) #, site_ids)
+        image_looping(site_images_path)
+        #masks = color_masking(site_images_path)
+        #features = size_masking(masks[0])
+        spectrometer = connect_to_spectrometer()
+        if spectrometer:
+            print(f'connected to spectrometer')
+            gather_spectra(spectrometer, spectra_path, common_coords)
 
 #spectra_of_sites(microscope, spectrometer, spectra_path)
-#png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/10j2'
-#png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ032'
-#png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ062'
-background_png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/background'
 #csv_to_png(spectra_path, png_output_folder)
 #csv_to_png(background_spectra_path, background_png_output_folder)
 
