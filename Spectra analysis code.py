@@ -18,40 +18,45 @@ from PIL import Image, ImageDraw, ImageFont
 import matplotlib.patches as patches
 import pandas as pd
 
-# path_10j = True
-# if path_10j:
-site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/10j2'
-spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/10j2'
-canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/10j2'
-hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/10j2'
-png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/10j2'
-sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/10j2"
-relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/10j2"
-output_path = 'C:/Users/shann/PycharmProjects/P4 Project/scale/10j2'
-noise_subtracted = "C:/Users/shann/PycharmProjects/P4 Project/noise_subtracted/10j"
-spectra_results_path = "C:/Users/shann/PycharmProjects/P4 Project/spectra_results/10j2"
+path_10j = False
+if path_10j:
+    site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/10j'
+    spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/10j'
+    canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/10j'
+    hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/10j'
+    png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/10j'
+    sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/10j"
+    relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/10j"
+    output_path = 'C:/Users/shann/PycharmProjects/P4 Project/scale/10j'
+    noise_subtracted = "C:/Users/shann/PycharmProjects/P4 Project/noise_subtracted/10j"  # check
+    spectra_results_path = "C:/Users/shann/PycharmProjects/P4 Project/spectra_results/10j"
+    noise_subtracted_path = "C:/Users/shann/PycharmProjects/P4 Project/noise_subtracted_path/10j"
 
 path_BJ03 = False
 if path_BJ03:
     site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ032'
     spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/BJ032'
     canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/BJ032'
-    hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/BJ02'
+    hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/BJ032'
     png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ032'
     sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/BJ032"
     relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ032"
-    output_path ='C:/Users/shann/PycharmProjects/P4 Project/scale/BJ03'
+    noise_subtracted = "C:/Users/shann/PycharmProjects/P4 Project/noise_subtracted/BJ032"
+    output_path ='C:/Users/shann/PycharmProjects/P4 Project/scale/BJ032'
+    noise_subtracted_path = "C:/Users/shann/PycharmProjects/P4 Project/noise_subtracted_path/BJ032"
 
-path_BJ06 = False
+path_BJ06 = True
 if path_BJ06:
-    site_images_path = ('C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ062')
-    spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/BJ062'
-    canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/BJ062'
-    hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/BJ02'
-    png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ062'
-    sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/BJ062"
-    relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ062"
+    site_images_path = 'C:/Users/shann/PycharmProjects/P4 Project/site_images/BJ06'
+    spectra_path = 'C:/Users/shann/PycharmProjects/P4 Project/spectra/BJ06'
+    canny_path = 'C:/Users/shann/PycharmProjects/P4 Project/canny/BJ06'
+    hough_path = 'C:/Users/shann/PycharmProjects/P4 Project/hough/BJ06'
+    png_output_folder = 'C:/Users/shann/PycharmProjects/P4 Project/spectra_png/BJ06'
+    sift_results_path = "C:/Users/shann/PycharmProjects/P4 Project/sift_results/BJ06"
+    relative_abundance_path = "C:/Users/shann/PycharmProjects/P4 Project/relative abundances/BJ06"
+    noise_subtracted = "C:/Users/shann/PycharmProjects/P4 Project/noise_subtracted/BJ06"
     output_path = 'C:/Users/shann/PycharmProjects/P4 Project/scale/BJ06'
+    noise_subtracted_path = "C:/Users/shann/PycharmProjects/P4 Project/noise_subtracted_path/BJ06"
 
 
 #background_spectra_path = "C:/Users/shann/PycharmProjects/P4 Project/background"
@@ -142,7 +147,7 @@ def sift_feature_detection(site_images_path, sift_results_path):
                 plt.title(f"SIFT Features for Site {i}")
                 plt.axis("off")
                 #plt.savefig(os.path.join(sift_results_path, f"sift_features_image_{i}.png"))
-                #plt.show()
+                plt.show()
 
                 descriptors_path = os.path.join(sift_results_path, f"descriptors_image_{i}.npy")
                 #np.save(descriptors_path, descriptors)
@@ -481,9 +486,6 @@ def scale_bar(site_images_path, output_path):
 scale_bar(site_images_path, output_path)
 
 
-
-
-# fix this later
 def background_subtracted(site_folder, background_csv, output_folder=noise_subtracted, plot=True):
     background = True
     if background:
@@ -537,7 +539,7 @@ def background_subtracted(site_folder, background_csv, output_folder=noise_subtr
                 plt.legend()
                 plt.grid(alpha=0.5)
                 output_file_spectrum = os.path.join(output_path, f'Background_subtracted_spectra_feature_{feature_ids}.png')
-                plt.savefig(output_file_spectrum, bbox_inches='tight', pad_inches=0)
+                #plt.savefig(output_file_spectrum, bbox_inches='tight', pad_inches=0)
                 plt.show()
 
 
@@ -549,7 +551,7 @@ noise_subtracted_spectra = background_subtracted(spectra_path, background_spectr
 
 
 
-noise_subtracted_path = "C:/Users/shann/PycharmProjects/P4 Project/noise_subtracted_path"
+
 
 
 #
@@ -613,7 +615,7 @@ def peaks_of_subtracted_spectra(noise_subtracted, noise_subtracted_path):
         plt.ylabel("Intensity")
         plt.title(f"Noise Subtracted Spectrum with Detected Peaks for Feature {feature_ids}") # add site_ids here
         plt.legend()
-        plt.savefig(os.path.join(noise_subtracted_path, f"noise_subtracted_spectrum_analysis_site_{feature_ids}"))
+        #plt.savefig(os.path.join(noise_subtracted_path, f"noise_subtracted_spectrum_analysis_site_{feature_ids}"))
         #plt.grid(alpha=0.5)
         plt.show()
 
